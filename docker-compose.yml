@@ -1,0 +1,171 @@
+# ==========================================================================
+# Atlas — operator compose for the coding & development platform.
+#
+# Default services (docker compose up -d): Gitea (repo & development
+# hosting) and the self-hosted Convex backend + dashboard (the reactive
+# backend Chef builds apps onto). Profiles are opt-in and additive:
+#
+#   docker compose up -d                       # Gitea + Convex + dashboard
+#   docker compose --profile gateway up -d     # OmniRoute model gateway
+#   docker compose --profile chef up -d        # Chef AI app builder (from source)
+# ==========================================================================
+
+name: atlas
+
+services:
+  # ------------------------------------------------------------------
+  # Gitea — repo & development hosting. Built-in wiki, issue boards,
+  # package registry, and Actions CI. SSO via Authentik (Cerulean).
+  # ------------------------------------------------------------------
+  gitea:
+    image: gitea/gitea:${GITEA_VERSION:-1.27.2}
+    container_name: atlas-gitea
+    restart: unless-stopped
+    environment:
+      GITEA__server__DOMAIN: ${GIT_HOST:-git.innotel.us}
+      GITEA__server__SSH_DOMAIN: ${GIT_HOST:-git.innotel.us}
+      GITEA__server__ROOT_URL: ${GITEA_ROOT_URL:-https://git.innotel.us/}
+      GITEA__server__HTTP_PORT: "3000"
+      GITEA__server__SSH_PORT: ${GITEA_SSH_PORT:-22}
+      GITEA__database__DB_TYPE: postgres
+      GITEA__database__HOST: gitea-db:5432
+      GITEA__database__NAME: ${GITEA_DB_NAME:-gitea}
+      GITEA__database__USER: ${GITEA_DB_USER:-gitea}
+      GITEA__database__PASSWD: ${GITEA_DB_PASSWORD:-change-me-gitea-db-password}
+      # No open signups: accounts come from Authentik SSO or the admin.
+      GITEA__service__DISABLE_REGISTRATION: ${GITEA_DISABLE_REGISTRATION:-true}
+      GITEA__service__REQUIRE_SIGNIN_VIEW: "true"
+      GITEA__session__COOKIE_SECURE: "true"
+      GITEA__openid__ENABLE_OPENID_SIGNIN: "false"
+    ports:
+      - "${GITEA_HTTP_PORT:-3000}:3000"
+      - "${GITEA_SSH_PORT:-22}:22"
+    volumes:
+      - gitea-data:/data
+    depends_on:
+      gitea-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:3000/api/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+
+  gitea-db:
+    image: postgres:${POSTGRES_VERSION:-16}-alpine
+    container_name: atlas-gitea-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${GITEA_DB_NAME:-gitea}
+      POSTGRES_USER: ${GITEA_DB_USER:-gitea}
+      POSTGRES_PASSWORD: ${GITEA_DB_PASSWORD:-change-me-gitea-db-password}
+    volumes:
+      - gitea-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${GITEA_DB_USER:-gitea} -d ${GITEA_DB_NAME:-gitea}"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  # ------------------------------------------------------------------
+  # Convex backend — self-hosted reactive database & compute (Chef's
+  # app-building target). SQLite storage on a named volume by default.
+  # Publish ports to 127.0.0.1; the edge (NPM) fronts them publicly and
+  # Cerulean attaches TLS. See docs/Deployment.md for Postgres/S3 options.
+  # ------------------------------------------------------------------
+  convex:
+    image: ghcr.io/get-convex/convex-backend:${CONVEX_VERSION:-latest}
+    container_name: atlas-convex
+    stop_grace_period: 10s
+    stop_signal: SIGINT
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${CONVEX_BACKEND_PORT:-3210}:3210"
+      - "127.0.0.1:${CONVEX_SITE_PORT:-3211}:3211"
+    volumes:
+      - convex-data:/convex/data
+    environment:
+      INSTANCE_NAME: ${INSTANCE_NAME:-atlas-convex}
+      INSTANCE_SECRET: ${CONVEX_INSTANCE_SECRET:-}
+      CONVEX_CLOUD_ORIGIN: http://127.0.0.1:${CONVEX_BACKEND_PORT:-3210}
+      CONVEX_SITE_ORIGIN: http://127.0.0.1:${CONVEX_SITE_PORT:-3211}
+      DO_NOT_REQUIRE_SSL: "1"
+      DISABLE_BEACON: "1"
+      RUST_LOG: ${RUST_LOG:-info}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3210/version"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  # ------------------------------------------------------------------
+  # Convex dashboard — admin UI for the self-hosted backend.
+  # Generate admin keys with `make convex:key`.
+  # ------------------------------------------------------------------
+  convex-dashboard:
+    image: ghcr.io/get-convex/convex-dashboard:${CONVEX_VERSION:-latest}
+    container_name: atlas-convex-dashboard
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${CONVEX_DASHBOARD_PORT:-6791}:6791"
+    environment:
+      NEXT_PUBLIC_DEPLOYMENT_URL: http://127.0.0.1:${CONVEX_BACKEND_PORT:-3210}
+      NEXT_PUBLIC_LOAD_MONACO_INTERNALLY: ${NEXT_PUBLIC_LOAD_MONACO_INTERNALLY:-false}
+    depends_on:
+      convex:
+        condition: service_healthy
+
+  # ------------------------------------------------------------------
+  # OmniRoute — self-hosted OpenAI-compatible model gateway (port 20128).
+  # The single model provider for Chef's codegen agent: connect provider
+  # accounts in the dashboard, point Chef's provider keys at this endpoint.
+  # ------------------------------------------------------------------
+  omniroute:
+    image: diegosouzapw/omniroute:latest
+    container_name: atlas-omniroute
+    profiles: ["gateway"]
+    restart: unless-stopped
+    environment:
+      OMNIROUTE_SERVER_HOST: 0.0.0.0
+      OMNIROUTE_PORT: ${OMNIROUTE_PORT:-20128}
+      REQUIRE_API_KEY: ${REQUIRE_API_KEY:-true}
+    ports:
+      - "127.0.0.1:${OMNIROUTE_PORT:-20128}:${OMNIROUTE_PORT:-20128}"
+    volumes:
+      - omniroute-data:/app/data
+
+  # ------------------------------------------------------------------
+  # Chef — AI app builder (upstream get-convex/chef, cloned to
+  # services/chef by setup.sh). Builds full-stack web apps on the Atlas
+  # Convex backend. Model calls route through OmniRoute. Bring-up
+  # sequence and the Authentik auth fork live in docs/Deployment.md.
+  # ------------------------------------------------------------------
+  chef:
+    container_name: atlas-chef
+    profiles: ["chef"]
+    build:
+      context: ./services/chef
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${CHEF_PORT:-5173}:5173"
+    environment:
+      VITE_CONVEX_URL: ${VITE_CONVEX_URL:-http://127.0.0.1:3210}
+      VITE_PROVISION_HOST: ${VITE_PROVISION_HOST:-https://api.convex.dev}
+      BIG_BRAIN_HOST: ${BIG_BRAIN_HOST:-https://api.convex.dev}
+      CONVEX_SELF_HOSTED_URL: ${CONVEX_SELF_HOSTED_URL:-http://127.0.0.1:3210}
+      CONVEX_SELF_HOSTED_ADMIN_KEY: ${CONVEX_SELF_HOSTED_ADMIN_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+      XAI_API_KEY: ${XAI_API_KEY:-}
+    depends_on:
+      convex:
+        condition: service_healthy
+
+volumes:
+  gitea-data:
+  gitea-db-data:
+  convex-data:
+  omniroute-data:
