@@ -131,8 +131,11 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     ports:
-      - "127.0.0.1:${CHEF_PORT:-5173}:5173"
+      # 4310 = Chef app port (vite/remix set to 4310 in the auth fork; PORT env below
+      # covers the production server) — avoids the common 5173 Vite dev default.
+      - "127.0.0.1:${CHEF_PORT:-4310}:4310"
     environment:
+      PORT: "${CHEF_PORT:-4310}"
       VITE_CONVEX_URL: ${VITE_CONVEX_URL:-http://127.0.0.1:3210}
       VITE_PROVISION_HOST: ${VITE_PROVISION_HOST:-https://api.convex.dev}
       BIG_BRAIN_HOST: ${BIG_BRAIN_HOST:-https://api.convex.dev}

@@ -53,7 +53,7 @@ DNS-01 via the shared BIND; CNAMEs to the apex), provision:
 | Host | Forward | Upstream (host port) |
 | --- | --- | --- |
 | `git.innotel.us` | NPM proxy host | `127.0.0.1:${GITEA_HTTP_PORT:-3000}` |
-| `chef.innotel.us` | NPM proxy host | `127.0.0.1:${CHEF_PORT:-5173}` |
+| `chef.innotel.us` | NPM proxy host | `127.0.0.1:${CHEF_PORT:-4310}` |
 | `convex.innotel.us` | NPM proxy host | `127.0.0.1:${CONVEX_BACKEND_PORT:-3210}` |
 
 `*.innotel.us` does not cover these hostnames' needs for deeper aliases —
