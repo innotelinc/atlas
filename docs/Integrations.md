@@ -47,7 +47,7 @@ Upstreams:
 - Admin keys come from inside the container:
 
   ```bash
-  make convex:key            # docker compose exec convex ./generate_admin_key.sh
+  make convex-key            # docker compose exec convex ./generate_admin_key.sh
   ```
 
   Then point the CLI at Atlas Convex instead of the cloud:
@@ -104,17 +104,19 @@ Three wiring layers, in bring-up order:
    redirect `https://chef.<zone>/api/auth/callback`), swap Chef's login flow
    for an Authorization Code Grant against Authentik, and clear
    `VITE_PROVISION_HOST`/`BIG_BRAIN_HOST` so no traffic leaves the box.
-   Until that fork lands, `make chef:up` runs Chef in local-dev mode
+   Until that fork lands, `make chef-up` runs Chef in local-dev mode
    (`pnpm run dev` on `:5173`, per upstream README) against Atlas Convex.
 
 ## OmniRoute — the provider for Chef
 
-- Self-hosted, OpenAI-compatible model gateway (dashboard + `/v1` on
-  `:20128`). Connect provider accounts once in the OmniRoute dashboard.
+- **Shared gateway on Zeus (Group 2 of the mesh, `10.10.2.1:20128`).**
+  Atlas runs no OmniRoute of its own; connect provider accounts once in
+  the Zeus OmniRoute dashboard.
 - Chef's codegen agent points at
-  `OMNIROUTE_BASE_URL=http://127.0.0.1:20128/v1` with
+  `OMNIROUTE_BASE_URL=http://10.10.2.1:20128/v1` with
   `OMNIROUTE_API_KEY`, so Atlas never stores vendor keys — one pool, many
-  providers, single point of rotation.
+  providers, single point of rotation. Requires the WireGuard mesh to be
+  up (see innotel-platform-stack).
 
 ## Authentik — identity (IdentityOps)
 

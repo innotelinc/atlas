@@ -44,7 +44,7 @@ DNS, and billing from the Innotel Platform Stack behind you.
   file uploads, realtime UIs, and background workflows on Convex.
 - **App runtime backend (Convex, self-hosted)** — the open-source reactive
   database and compute engine generated apps run on, with a dashboard and
-  CLI admin (`make convex:key`).
+  CLI admin (`make convex-key`).
 - **One model gateway (OmniRoute)** — Chef's codegen routes through
   OmniRoute's OpenAI-compatible endpoint, so provider accounts live in one
   gateway dashboard instead of Atlas code.
@@ -63,19 +63,19 @@ cd atlas
 
 ```bash
 make up           # gitea, gitea-db, convex backend, convex dashboard
-make convex:key   # generate the admin key for the Convex dashboard/CLI
+make convex-key   # generate the admin key for the Convex dashboard/CLI
 ```
 
 ### 2. Model gateway — OmniRoute
 
 ```bash
-make gateway:up   # http://127.0.0.1:20128 — connect provider accounts
+make gateway-check   # http://127.0.0.1:20128 — connect provider accounts
 ```
 
 ### 3. AI app builder — Chef
 
 ```bash
-make chef:up      # build + start Chef from services/chef (upstream clone)
+make chef-up      # build + start Chef from services/chef (upstream clone)
 ```
 
 Full bring-up order, Authentik/Cerulean edge wiring, and the Chef auth fork
@@ -125,8 +125,8 @@ atlas/
 ```bash
 make help        # every target, one view
 make setup       # hooks + .env + preflight + Chef clone
-make gateway:up  # OmniRoute model gateway
-make check:commits
+make gateway-check  # OmniRoute model gateway
+make check-commits
 ```
 
 ## Hosted landing page

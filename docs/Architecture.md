@@ -55,7 +55,7 @@ single host or spreads across hosts behind the shared edge.
 2. Chef's agent loop calls its model providers — all routed through the
    OmniRoute gateway (`OMNIROUTE_BASE_URL`) — to generate code.
 3. Generated code is deployed to the **self-hosted Convex backend**
-   (`convex`, `:3210`) using the admin key from `make convex:key`.
+   (`convex`, `:3210`) using the admin key from `make convex-key`.
 4. The finished source is pushed to Gitea, where Actions CI takes over.
 
 ### Model gateway (OmniRoute)

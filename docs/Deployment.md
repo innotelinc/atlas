@@ -41,7 +41,7 @@ make ps            # gitea, gitea-db, convex, convex-dashboard healthy
   ```
 - **Convex admin key:**
   ```bash
-  make convex:key
+  make convex-key
   # paste into .env as CONVEX_SELF_HOSTED_ADMIN_KEY
   ```
 
@@ -63,16 +63,26 @@ for Gitea go through the same proxy (NPM `websocket_support: true`).
 
 ## Stage 3 — OmniRoute (model gateway)
 
-```bash
-make gateway:up
-# http://127.0.0.1:20128 — connect provider accounts in the dashboard,
-# create an API key, set OMNIROUTE_API_KEY in .env
+OmniRoute is the **single** model gateway in the platform and runs on Zeus
+(Group 2 of the mesh, `10.10.2.1:20128`). Atlas does **not** run its own
+instance — Chef reaches the shared gateway over the WireGuard mesh:
+
+```env
+OMNIROUTE_BASE_URL=http://10.10.2.1:20128/v1
+OMNIROUTE_API_KEY=<key created in the Zeus OmniRoute dashboard>
 ```
+
+```bash
+make gateway:check   # verifies the mesh gateway is reachable
+```
+
+If Zeus is down, Atlas model calls fail — start Group 2 first (`./stack.sh
+up 2` from the innotel-platform-stack repo).
 
 ## Stage 4 — Chef (AI app builder)
 
 ```bash
-make chef:up       # docker compose --profile chef up -d --build
+make chef-up       # docker compose --profile chef up -d --build
 ```
 
 Chef runs from upstream source (`services/chef`). Two operating modes:
