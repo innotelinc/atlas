@@ -73,7 +73,7 @@ OMNIROUTE_API_KEY=<key created in the Zeus OmniRoute dashboard>
 ```
 
 ```bash
-make gateway:check   # verifies the mesh gateway is reachable
+make gateway-check   # verifies the mesh gateway is reachable
 ```
 
 If Zeus is down, Atlas model calls fail — start Group 2 first (`./stack.sh
@@ -111,8 +111,8 @@ docker run -d --name atlas-runner --restart unless-stopped \
 ## Production notes
 
 - **Persistence:** all state lives on named volumes (`gitea-data`,
-  `gitea-db-data`, `convex-data`, `omniroute-data`). Back them up — or point
-  Convex at Postgres/S3 per upstream docs for managed durability.
+  `gitea-db-data`, `convex-data`). Back them up — or point Convex at
+  Postgres/S3 per upstream docs for managed durability.
 - **Convex versions:** pin `CONVEX_VERSION` (and `GITEA_VERSION`) to a
   concrete release for reproducibility instead of `latest`.
 - **Same-host coexistence:** other platforms bind port 3000 etc.; change
