@@ -1,6 +1,6 @@
 # Chef Authentik Auth Fork — Scope & Design
 
-**Status: in progress — foundation + trust anchor landed; login/provisioning swap pending** · September 2026
+**Status: in progress — foundation + trust anchor + Authentik login flow landed (code, tsc-clean); runtime verification + provisioning localization pending** · September 2026
 
 Upstream is cloned at `services/chef` (gitignored) and **pinned to
 `d8a6cb6`** (`Add 'us' to new anthropic models (#980)`). The repo-side
@@ -20,6 +20,25 @@ foundation (stage 3a env plumbing) is in `docker-compose.yml` /
 - Chef's port is **4310** throughout this repo (was the common Vite dev
   default 5173); the fork must pin `server.port` in `vite.config.ts`, and the
   Dockerfile must `EXPOSE 4310` and honor `PORT`.
+- **Authentik login flow (client + routes) landed** in the checkout:
+  - `app/routes/api.auth.{start,callback,session,signout}.ts` — server-side
+    Authorization Code + PKCE orchestration: `start` stashes verifier/state in
+    httpOnly cookies and redirects to Authentik; `callback` exchanges the code
+    (`authentik.ts`) and stores the id_token in a signed `chef_session` cookie;
+    `session` returns the id_token + user to the client; `signout` clears it.
+  - `app/lib/auth/context.tsx` — `AuthProvider` (mode-gated: `authentik` |
+    `workos`) behind one AuthKit-compatible `useAuth`; fork mode feeds Convex
+    via `convex.setAuth(id_token)` (validated by the auth.config.ts customJwt),
+    upstream mode preserves the AuthKit bridge exactly.
+  - `app/root.tsx` loader selects `AUTH_MODE` from `CHEF_OIDC_ISSUER_URL`;
+    provider render swapped. All 7 `@workos-inc/authkit-react` `useAuth`
+    consumers now import `~/lib/auth/context` (no behavior change in workos
+    mode).
+  - `app/lib/auth/oidc.ts` — browser PKCE/authorize/decode helpers, **12 unit
+    tests** (vitest). Full-app `tsc --noEmit` is **clean**; 22/22 tests pass.
+  - **Still required before it runs**: register the `atlas-chef` OIDC client in
+    Authentik (redirect `chef.<zone>/api/auth/callback`), deploy codegen to
+    Atlas Convex, and verify the browser flow (3c).
 
 Chef (the AI app builder) is the last Atlas surface that still talks to the
 outside world for identity: upstream Chef authenticates through Convex's
