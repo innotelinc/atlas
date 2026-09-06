@@ -117,29 +117,12 @@ services:
         condition: service_healthy
 
   # ------------------------------------------------------------------
-  # OmniRoute — self-hosted OpenAI-compatible model gateway (port 20128).
-  # The single model provider for Chef's codegen agent: connect provider
-  # accounts in the dashboard, point Chef's provider keys at this endpoint.
-  # ------------------------------------------------------------------
-  omniroute:
-    image: diegosouzapw/omniroute:latest
-    container_name: atlas-omniroute
-    profiles: ["gateway"]
-    restart: unless-stopped
-    environment:
-      OMNIROUTE_SERVER_HOST: 0.0.0.0
-      OMNIROUTE_PORT: ${OMNIROUTE_PORT:-20128}
-      REQUIRE_API_KEY: ${REQUIRE_API_KEY:-true}
-    ports:
-      - "127.0.0.1:${OMNIROUTE_PORT:-20128}:${OMNIROUTE_PORT:-20128}"
-    volumes:
-      - omniroute-data:/app/data
-
-  # ------------------------------------------------------------------
   # Chef — AI app builder (upstream get-convex/chef, cloned to
   # services/chef by setup.sh). Builds full-stack web apps on the Atlas
-  # Convex backend. Model calls route through OmniRoute. Bring-up
-  # sequence and the Authentik auth fork live in docs/Deployment.md.
+  # Convex backend. Model calls route through the shared OmniRoute on
+  # Zeus (Group 2) over the WireGuard mesh — Atlas runs no gateway of
+  # its own. Bring-up sequence and the Authentik auth fork live in
+  # docs/Deployment.md.
   # ------------------------------------------------------------------
   chef:
     container_name: atlas-chef
@@ -156,8 +139,6 @@ services:
       BIG_BRAIN_HOST: ${BIG_BRAIN_HOST:-https://api.convex.dev}
       CONVEX_SELF_HOSTED_URL: ${CONVEX_SELF_HOSTED_URL:-http://127.0.0.1:3210}
       CONVEX_SELF_HOSTED_ADMIN_KEY: ${CONVEX_SELF_HOSTED_ADMIN_KEY:-}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
       XAI_API_KEY: ${XAI_API_KEY:-}
     depends_on:
@@ -168,4 +149,3 @@ volumes:
   gitea-data:
   gitea-db-data:
   convex-data:
-  omniroute-data:
