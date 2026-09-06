@@ -69,7 +69,7 @@ make convex-key   # generate the admin key for the Convex dashboard/CLI
 ### 2. Model gateway — OmniRoute
 
 ```bash
-make gateway-check   # http://127.0.0.1:20128 — connect provider accounts
+make gateway-check   # verify the shared OmniRoute on Zeus (Group 2) is reachable
 ```
 
 ### 3. AI app builder — Chef
@@ -113,7 +113,7 @@ atlas/
 ├── web/landing/               # Static GitHub Pages landing page
 ├── .github/workflows/         # CI, attribution guard, Pages publish
 ├── .githooks/                 # Local attribution guard (shared with CI)
-├── docker-compose.yml         # Gitea + Convex core; gateway/chef profiles
+├── docker-compose.yml         # Gitea + Convex core; chef profile (opt-in)
 ├── services/                  # Upstream checkouts (Chef) — gitignored, via setup.sh
 ├── scripts/                   # setup.sh, commit-message policy
 ├── .env.example               # Environment template (never commit .env)
@@ -125,7 +125,7 @@ atlas/
 ```bash
 make help        # every target, one view
 make setup       # hooks + .env + preflight + Chef clone
-make gateway-check  # OmniRoute model gateway
+make gateway-check  # verify the shared OmniRoute gateway (Zeus Group 2)
 make check-commits
 ```
 

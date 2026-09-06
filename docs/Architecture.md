@@ -60,9 +60,10 @@ single host or spreads across hosts behind the shared edge.
 
 ### Model gateway (OmniRoute)
 
-- One endpoint (`http://127.0.0.1:20128/v1`), one credential pool. Chef's
-  provider keys point at OmniRoute instead of vendor endpoints, so provider
-  accounts rotate in the gateway dashboard — never in Atlas code.
+- One endpoint (`http://10.10.2.1:20128/v1` — the shared OmniRoute on
+  Zeus, Group 2 of the mesh), one credential pool. Chef's provider keys
+  point at OmniRoute instead of vendor endpoints, so provider accounts
+  rotate in the gateway dashboard — never in Atlas code.
 
 ## Configuration
 

@@ -34,8 +34,8 @@ jobs:
       - name: Validate compose (default)
         run: docker compose config --quiet
 
-      - name: Validate compose (gateway profile)
-        run: docker compose --profile gateway config --quiet
+      - name: Validate compose (chef profile)
+        run: docker compose --profile chef config --quiet
 
       - name: Landing page sanity
         run: |

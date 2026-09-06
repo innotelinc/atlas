@@ -63,7 +63,7 @@ fi
 say "5/5 next steps"
 printf '%s\n' \
   "  1. Core platform (Gitea + Convex): make up" \
-  "  2. Model gateway:                  make gateway-check (OmniRoute on 127.0.0.1:20128)" \
+  "  2. Model gateway:                  make gateway-check (shared OmniRoute on Zeus — Group 2)" \
   "  3. Convex admin key:               make convex-key" \
   "  4. Chef (AI app builder):          make chef-up  (see docs/Deployment.md — Stage 4)" \
   "  5. Full runbook:                   docs/Deployment.md"

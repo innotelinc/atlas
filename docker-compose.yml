@@ -6,7 +6,6 @@
 # backend Chef builds apps onto). Profiles are opt-in and additive:
 #
 #   docker compose up -d                       # Gitea + Convex + dashboard
-#   docker compose --profile gateway up -d     # OmniRoute model gateway
 #   docker compose --profile chef up -d        # Chef AI app builder (from source)
 # ==========================================================================
 
@@ -101,7 +100,7 @@ services:
 
   # ------------------------------------------------------------------
   # Convex dashboard — admin UI for the self-hosted backend.
-  # Generate admin keys with `make convex:key`.
+  # Generate admin keys with `make convex-key`.
   # ------------------------------------------------------------------
   convex-dashboard:
     image: ghcr.io/get-convex/convex-dashboard:${CONVEX_VERSION:-latest}
