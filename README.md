@@ -104,6 +104,7 @@ are in [docs/Deployment.md](docs/Deployment.md) and
 | [docs/Architecture.md](docs/Architecture.md) | System design, components, data flows |
 | [docs/Integrations.md](docs/Integrations.md) | Gitea, Chef, Convex self-hosted, OmniRoute, Authentik |
 | [docs/Deployment.md](docs/Deployment.md) | Bring-up runbook, Cerulean DNS/TLS, production notes |
+| [docs/chef-auth-fork.md](docs/chef-auth-fork.md) | Scope & design for the Chef Authentik auth fork |
 
 ## Repository layout
 
