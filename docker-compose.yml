@@ -140,6 +140,14 @@ services:
       CONVEX_SELF_HOSTED_ADMIN_KEY: ${CONVEX_SELF_HOSTED_ADMIN_KEY:-}
       GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
       XAI_API_KEY: ${XAI_API_KEY:-}
+      # Chef Authentik auth fork (docs/chef-auth-fork.md, stage 3a) — empty by
+      # default so behavior is unchanged until the fork code lands. CHEF_OIDC_*
+      # keeps these separate from Gitea's OIDC_* (client `atlas-gitea`).
+      CHEF_OIDC_ISSUER_URL: ${CHEF_OIDC_ISSUER_URL:-}
+      CHEF_OIDC_CLIENT_ID: ${CHEF_OIDC_CLIENT_ID:-atlas-chef}
+      CHEF_OIDC_CLIENT_SECRET: ${CHEF_OIDC_CLIENT_SECRET:-}
+      CHEF_SESSION_SECRET: ${CHEF_SESSION_SECRET:-}
+      IDP_ADMIN_GROUP: ${IDP_ADMIN_GROUP:-atlas-admins}
     depends_on:
       convex:
         condition: service_healthy

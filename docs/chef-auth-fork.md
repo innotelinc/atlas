@@ -1,6 +1,12 @@
 # Chef Authentik Auth Fork — Scope & Design
 
-**Status: scoped, not yet implemented** · September 2026
+**Status: baselined — foundation landed, fork code pending** · September 2026
+
+Upstream is cloned at `services/chef` (gitignored) and **pinned to
+`d8a6cb6`** (`Add 'us' to new anthropic models (#980)`). The repo-side
+foundation (stage 3a env plumbing) is in `docker-compose.yml` /
+`.env.example`; the fork code itself lives in the `services/chef` checkout
+(stages 3b–3c below).
 
 Chef (the AI app builder) is the last Atlas surface that still talks to the
 outside world for identity: upstream Chef authenticates through Convex's
@@ -29,7 +35,7 @@ Reference points:
 
 | Concern | Current | Files (in `services/chef`) |
 | --- | --- | --- |
-| Login | Upstream OAuth against Convex's hosted plane (`api.convex.dev`) | login flow in the upstream app |
+| Login | **WorkOS-backed Convex auth**: OAuth app created under a Convex dashboard team, team selector, then cloud `provision_and_authorize` — see upstream issue #911 | `convex/auth.config.ts`, `app/components/chat/ChefAuthWrapper.tsx`, `app/routes/api.convex.callback.ts`, `convex/sessions.ts` |
 | Project provisioning | Hosted control-plane API (create project, tokens) | `VITE_PROVISION_HOST` (`https://api.convex.dev`) |
 | Account/big-brain endpoints | Hosted | `BIG_BRAIN_HOST` (`https://api.convex.dev`) |
 | Chef's own backend | Deployed to **Atlas** self-hosted Convex (`convex/` functions, `make convex-key` admin key) | `npx convex dev --once` against `CONVEX_SELF_HOSTED_URL` |
@@ -39,6 +45,22 @@ Reference points:
 So today the app's *codegen* is self-hosted (Atlas Convex + OmniRoute), but
 its *login and provisioning* still depend on Convex's cloud. The fork closes
 that gap.
+
+## 1b. File map (upstream `d8a6cb6`) — what the fork touches
+
+| File | Role today | Fork change |
+| --- | --- | --- |
+| `app/routes/api.convex.callback.ts` | Cloud `provision_and_authorize` after WorkOS login | Replace with Authentik OIDC callback → local provisioning |
+| `convex/auth.config.ts` + `app/components/chat/ChefAuthWrapper.tsx` | Convex/WorkOS auth providers | Authentik provider (OIDC code grant), `CHEF_OIDC_*` envs |
+| `convex/sessions.ts` | Session + team/`profile` via `BIG_BRAIN_HOST/api/dashboard/profile` | Local user/session from the Authentik subject; drop cloud profile |
+| `convex/convexProjects.ts` | `BIG_BRAIN_HOST/api/create_project` + `dashboard/authorize` (deploy keys) | Local project rows + per-app deploy keys on Atlas Convex |
+| `convex/messages.ts` | Team projects list + `delete_project` via big-brain | Local project store |
+| `convex/deploy.ts`, `app/lib/.server/deploy-simple.ts` | Deploy generated apps to the provisioned (cloud) deployment | Deploy to the per-app Atlas Convex backend (`CONVEX_SELF_HOSTED_URL` + key) |
+| `app/lib/convexProvisionHost.ts`, `convexProfile.ts`, `convexUsage.ts`, `convexOptins.ts`, `app/routes/api.enhance-prompt.ts` | `VITE_PROVISION_HOST`/`PROVISION_HOST` → `api.convex.dev` (profile, usage, opt-ins) | Local equivalents or no-op until apps deploy |
+
+`PROVISION_HOST` (server env) and `VITE_PROVISION_HOST`/`BIG_BRAIN_HOST`
+(client/server envs) are the two seams; clearing them must not break the
+build, only the login/provisioning that the fork replaces.
 
 ## 2. Target architecture
 
@@ -81,14 +103,16 @@ Non-negotiable outcomes:
    `openid profile email groups`) and issue client id/secret into Infisical.
 2. Add the env plumbing the container will need (today the `chef` compose
    service passes only `VITE_*` model/convex vars):
-   - `OIDC_ISSUER_URL`, `OIDC_CLIENT_ID=atlas-chef`, `OIDC_CLIENT_SECRET`
+   - `CHEF_OIDC_ISSUER_URL`, `CHEF_OIDC_CLIENT_ID=atlas-chef`,
+     `CHEF_OIDC_CLIENT_SECRET` (prefixed so they never collide with Gitea's
+     `OIDC_*` client `atlas-gitea`)
    - `CHEF_SESSION_SECRET` (HMAC cookie key)
    - `IDP_ADMIN_GROUP=atlas-admins`
    - keep `VITE_CONVEX_URL`, `CONVEX_SELF_HOSTED_URL` /
      `CONVEX_SELF_HOSTED_ADMIN_KEY`; drop `VITE_PROVISION_HOST` /
      `BIG_BRAIN_HOST` from the shipped defaults once the fork is the mode.
-   Add these to `.env.example` + `docker-compose.yml` now so the fork config
-   exists before the code does (defaults empty = unchanged behavior).
+   **Done** — see `docker-compose.yml` and `.env.example` (all defaults
+   empty/unchanged).
 
 ### 3b. Auth fork (in `services/chef`, the upstream checkout)
 
@@ -137,24 +161,25 @@ Steps B–D are the actual fork work and live in the `services/chef` checkout
 (a gitignored upstream clone) — they are intentionally **not** in this
 repo's tree until the fork is baselined upstream.
 
-## 5. Open questions for the owner
+## 5. Open design questions — recommended resolutions (owner confirm)
 
 1. **Project model on self-hosted Convex.** Chef provisions *projects* via
-   the cloud control plane. Self-hosted `convex-backend` is one deployment —
-   does each generated app become (a) its own Convex instance/deploy on the
-   same host, (b) one shared backend with per-project namespacing, or (c)
-   one shared backend where the fork keys access by Authentik subject only?
-   This decision drives 3b-2 and Q2.
-2. **Deploy tokens.** Upstream generates cloud tokens per project; the
-   self-hosted equivalent is the instance admin key
-   (`make convex-key`). Decide whether generated apps each get a scoped key
-   (needs the answer to Q1) or the operator-managed admin key until then.
-3. **Git push target.** "Ship it to Gitea" presumes an authenticated push
-   path from Chef to `git.innotel.us` — reuse the operator's Authentik
-   identity for repo creation (Gitea OAuth), or a machine token from
-   Infisical?
-4. **Fallback switch.** Keep the hosted-plane envs as an explicit dev
-   escape hatch (documented, empty by default — the same pattern as
-   `STRIPE_*` in Zeus) or remove them outright? (Recommended: keep empty by
-   default for upstream-dev parity; the egress check must still pass with
-   them empty.)
+   the cloud control plane; a self-hosted `convex-backend` instance is **one
+   deployment** (pushing two apps to the same instance overwrites).
+   **Recommendation: deployment-per-app (option a)** — the fork's
+   provisioning service starts one Atlas Convex backend (container, SQLite
+   volume, own admin key) per generated app, mirroring cloud semantics and
+   isolation. For dev/LAN, one shared instance is fine while only one app
+   is live.
+2. **Deploy tokens.** With deployment-per-app, each app's backend gets its
+   own admin key generated at provisioning time (replaces cloud
+   `dashboard/authorize`). Single shared instance (dev): the operator
+   `make convex-key` key until scoped per-project keys exist.
+3. **Git push target.** **Recommendation: a Gitea machine token from
+   Infisical**, used by the provisioning service to create repos per app
+   via the Gitea API (idempotent by repo name). Keep the operator's
+   Authentik identity out of Chef's push path.
+4. **Fallback switch.** Keep `VITE_PROVISION_HOST`/`BIG_BRAIN_HOST`
+   **empty by default** with a documented dev-only escape hatch (the
+   `STRIPE_*` pattern). The stage-3c egress check must still pass with them
+   empty — it fails if the running container ever calls `api.convex.dev`.
