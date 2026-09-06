@@ -1,6 +1,6 @@
 # Chef Authentik Auth Fork — Scope & Design
 
-**Status: in progress — foundation + trust anchor + Authentik login flow landed (code, tsc-clean); runtime verification + provisioning localization pending** · September 2026
+**Status: in progress — foundation + trust anchor + Authentik login flow landed (code, tsc-clean); provider signing key assigned and JWKS verified live; runtime browser verification + provisioning localization still pending** · September 2026
 
 Upstream is cloned at `services/chef` (gitignored) and **pinned to
 `d8a6cb6`** (`Add 'us' to new anthropic models (#980)`). The repo-side
@@ -44,12 +44,15 @@ foundation (stage 3a env plumbing) is in `docker-compose.yml` /
     scope mappings, redirects: `https://chef.innotel.us/api/auth/callback`
     (prod) + `http://127.0.0.1:4310` / `:5173` (dev). Application slug
     `atlas-chef`.
-  - **Operator TODO before login works**: the provider's `signing_key` is unset
-    and its per-provider `/jwks/` is empty — assign the key pair
-    **authentik Self-signed Certificate** (`1a438dc3-…`, the same key onyx
-    uses) via Admin → Providers → Atlas Chef → Signing key → Update (a
-    bootstrap-token RBAC quirk blocks the API PATCH). Then jwks serves the
-    key and Convex `customJwt` validation will succeed.
+  - **Signing key assigned** (2026-09-06): the provider now serves the
+    **authentik Self-signed Certificate** key pair (`1a438dc3-…`, the same
+    key onyx uses) — set via Admin → Providers → Atlas Chef → Signing key →
+    Update (the API PATCH is blocked by a bootstrap-token RBAC quirk, so it
+    was done in the UI). **Verified live**: `GET
+    …/application/o/atlas-chef/jwks/` returns the RSA signing key (kid
+    `10bac83b7ee12170a8d618c2ad8ee794`, x5c subject "authentik Self-signed
+    Certificate", valid 2026-09-04 → 2027-09-05), so Convex `customJwt`
+    validation now has a key to check against.
   - **Still required**: deploy codegen to Atlas Convex and run the browser
     flow (3c).
 
