@@ -130,14 +130,24 @@ Non-negotiable outcomes:
 ### 3b. Auth fork (in `services/chef`, the upstream checkout)
 
 1. **Wire the login flow** (server-side OIDC client landed — `authentik.ts`
-   above): replace `@workos-inc/authkit-react` (`ChefAuthWrapper`/`useAuth`)
-   and the `/api/convex/callback` code exchange (currently against
-   `api.convex.dev`) with an authorization-code + PKCE grant against
-   `CHEF_OIDC_ISSUER_URL` (discovery via
-   `/.well-known/openid-configuration`), exchanging the code server-side and
-   storing the Authentik `sub` as the user identity. `/api/auth/callback`
-   is the registered redirect. Map `email`/`name` claims onto the Chef user
-   model; promote users in `IDP_ADMIN_GROUP` (`atlas-admins`) to Chef admin.
+   above). Confirmed swap points in the checkout:
+   - `app/root.tsx` wraps the app in `ConvexProviderWithAuthKit` from
+     `@convex-dev/workos` (the WorkOS-specific Convex Auth provider) — the
+     target is the generic `ConvexProviderWithAuth` from `@convex-dev/auth/react`
+     fed by a `fetchAccessToken` that runs the Authentik PKCE flow and returns
+     the id_token (Convex Auth validates it against the `customJwt` JWKS from
+     `convex/auth.config.ts`).
+   - `ChefAuthWrapper.tsx` / `useAuth` (`@workos-inc/authkit-react`) and the
+     `/api/convex/callback` code exchange (currently against `api.convex.dev`)
+     are replaced by an authorization-code + PKCE grant against
+     `CHEF_OIDC_ISSUER_URL` (discovery via
+     `/.well-known/openid-configuration`), storing the Authentik `sub` as the
+     user identity. `/api/auth/callback` is the registered redirect. Map
+     `email`/`name` claims onto the Chef user model; promote users in
+     `IDP_ADMIN_GROUP` (`atlas-admins`) to Chef admin.
+   - **Browser caveat**: the landed `authentik.ts` is Node-only (uses
+     `node:crypto`); the client needs a Web-Crypto PKCE module or a route-based
+     exchange (redirect to Authentik, exchange on the server, set the token).
 2. **Localize provisioning**: the account/project endpoints Chef previously
    proxied to the hosted plane become Convex functions deployed to Atlas
    Convex (project rows, per-project deploy tokens/keys, workspace state).
