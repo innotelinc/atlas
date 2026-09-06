@@ -1,12 +1,25 @@
 # Chef Authentik Auth Fork — Scope & Design
 
-**Status: baselined — foundation landed, fork code pending** · September 2026
+**Status: in progress — foundation + trust anchor landed; login/provisioning swap pending** · September 2026
 
 Upstream is cloned at `services/chef` (gitignored) and **pinned to
 `d8a6cb6`** (`Add 'us' to new anthropic models (#980)`). The repo-side
 foundation (stage 3a env plumbing) is in `docker-compose.yml` /
 `.env.example`; the fork code itself lives in the `services/chef` checkout
 (stages 3b–3c below).
+
+**Landed so far** (in the gitignored `services/chef` checkout):
+
+- `app/lib/.server/authentik.ts` — server-side OIDC client (discovery, PKCE,
+  code exchange, RS256 id_token verification against the provider JWKS, zero
+  runtime deps) with 10 unit tests (locally generated RSA keypair), tsc clean.
+- `convex/auth.config.ts` — the Convex Auth `customJwt` trust anchor is now
+  env-gated: `CHEF_OIDC_ISSUER_URL` set → Authentik issuer/JWKS
+  (`<issuer>/jwks/`, application `atlas-chef`); unset → upstream
+  WorkOS-backed behavior unchanged. convex typecheck clean.
+- Chef's port is **4310** throughout this repo (was the common Vite dev
+  default 5173); the fork must pin `server.port` in `vite.config.ts`, and the
+  Dockerfile must `EXPOSE 4310` and honor `PORT`.
 
 Chef (the AI app builder) is the last Atlas surface that still talks to the
 outside world for identity: upstream Chef authenticates through Convex's
@@ -40,7 +53,7 @@ Reference points:
 | Account/big-brain endpoints | Hosted | `BIG_BRAIN_HOST` (`https://api.convex.dev`) |
 | Chef's own backend | Deployed to **Atlas** self-hosted Convex (`convex/` functions, `make convex-key` admin key) | `npx convex dev --once` against `CONVEX_SELF_HOSTED_URL` |
 | Model providers | OmniRoute OpenAI-compatible gateway (`OMNIROUTE_BASE_URL` / `OMNIROUTE_API_KEY`) | `app/lib/.server/llm/provider.ts`, `convex/openaiProxy.ts`, `convex/summarize.ts` |
-| Runtime | `make chef-up` runs **local-dev mode** (`pnpm run dev` on `:5173`, upstream README default) until the fork lands | Dockerfile (profile `chef`) |
+| Runtime | `make chef-up` runs **local-dev mode** on **`:4310`** (fork pins `server.port` in `vite.config.ts`; upstream default `:5173`), published at `127.0.0.1:${CHEF_PORT:-4310}` | Dockerfile (profile `chef`) must `EXPOSE 4310` and honor `PORT` |
 
 So today the app's *codegen* is self-hosted (Atlas Convex + OmniRoute), but
 its *login and provisioning* still depend on Convex's cloud. The fork closes
@@ -116,8 +129,11 @@ Non-negotiable outcomes:
 
 ### 3b. Auth fork (in `services/chef`, the upstream checkout)
 
-1. **Replace the login flow** with an OIDC authorization-code + PKCE grant
-   against `OIDC_ISSUER_URL` (discovery via
+1. **Wire the login flow** (server-side OIDC client landed — `authentik.ts`
+   above): replace `@workos-inc/authkit-react` (`ChefAuthWrapper`/`useAuth`)
+   and the `/api/convex/callback` code exchange (currently against
+   `api.convex.dev`) with an authorization-code + PKCE grant against
+   `CHEF_OIDC_ISSUER_URL` (discovery via
    `/.well-known/openid-configuration`), exchanging the code server-side and
    storing the Authentik `sub` as the user identity. `/api/auth/callback`
    is the registered redirect. Map `email`/`name` claims onto the Chef user

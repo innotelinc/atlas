@@ -37,7 +37,7 @@ single host or spreads across hosts behind the shared edge.
 | `convex` | `ghcr.io/get-convex/convex-backend` | `3210`, `3211` (127.0.0.1) | SQLite on a volume by default |
 | `convex-dashboard` | `ghcr.io/get-convex/convex-dashboard` | `6791` (127.0.0.1) | points at `convex` |
 | `omniroute` (profile) | `diegosouzapw/omniroute` | `20128` (127.0.0.1) | OpenAI-compatible `/v1` |
-| `chef` (profile) | build from `services/chef` | `5173` (127.0.0.1) | upstream get-convex/chef |
+| `chef` (profile) | build from `services/chef` | `4310` (127.0.0.1) | upstream get-convex/chef |
 
 ## Data flows
 

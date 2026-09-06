@@ -105,7 +105,8 @@ Three wiring layers, in bring-up order:
    for an Authorization Code Grant against Authentik, and clear
    `VITE_PROVISION_HOST`/`BIG_BRAIN_HOST` so no traffic leaves the box.
    Until that fork lands, `make chef-up` runs Chef in local-dev mode
-   (`pnpm run dev` on `:5173`, per upstream README) against Atlas Convex.
+   (`pnpm run dev` on `:4310` — the fork pins the port; upstream defaults to
+   `:5173`) against Atlas Convex.
    Full scope, workstreams, and the open design questions (project model on
    self-hosted Convex, deploy tokens, git push path) live in
    [docs/chef-auth-fork.md](chef-auth-fork.md).
