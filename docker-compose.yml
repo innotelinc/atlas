@@ -139,7 +139,9 @@ services:
       # args (production serve, fork workstream 3b.3).
       args:
         VITE_CONVEX_URL: ${VITE_CONVEX_URL:-http://127.0.0.1:3210}
-        VITE_PROVISION_HOST: ${VITE_PROVISION_HOST:-https://api.convex.dev}
+        # Empty by default (fork §4): Chef must not leave the box for a core
+        # function. Hosted-plane dev sets these explicitly (escape hatch).
+        VITE_PROVISION_HOST: ${VITE_PROVISION_HOST:-}
     restart: unless-stopped
     ports:
       # 4310 = Chef app port (remix-serve honors PORT; the auth fork moved off
@@ -148,8 +150,12 @@ services:
     environment:
       PORT: "${CHEF_PORT:-4310}"
       VITE_CONVEX_URL: ${VITE_CONVEX_URL:-http://127.0.0.1:3210}
-      VITE_PROVISION_HOST: ${VITE_PROVISION_HOST:-https://api.convex.dev}
-      BIG_BRAIN_HOST: ${BIG_BRAIN_HOST:-https://api.convex.dev}
+      # Hosted control-plane endpoints — empty by default (fork §4): Chef must
+      # not leave the box for a core function. Set explicitly for hosted-plane
+      # dev (escape hatch); with CHEF_PROVISION_URL set, fork-mode code paths
+      # never call them.
+      VITE_PROVISION_HOST: ${VITE_PROVISION_HOST:-}
+      BIG_BRAIN_HOST: ${BIG_BRAIN_HOST:-}
       CONVEX_SELF_HOSTED_URL: ${CONVEX_SELF_HOSTED_URL:-http://127.0.0.1:3210}
       CONVEX_SELF_HOSTED_ADMIN_KEY: ${CONVEX_SELF_HOSTED_ADMIN_KEY:-}
       GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}

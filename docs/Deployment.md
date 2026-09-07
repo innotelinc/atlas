@@ -91,10 +91,11 @@ Chef runs from upstream source (`services/chef`). Operating mode:
    production image (`pnpm build` + `remix-serve` on `:4310`, fork workstream
    3b.3) and Chef logs in through Cerulean's Authentik (`atlas-chef` OIDC
    client). The hosted-plane envs (`VITE_PROVISION_HOST`/`BIG_BRAIN_HOST`)
-   still default to `api.convex.dev` until provisioning localization (3b.2,
-   [chef-auth-fork.md](chef-auth-fork.md) §5 Q1/Q2) lands; clearing them
-   without that step would break project creation. Generated-app deploy to
-   Atlas Convex + Gitea is the 3b.2 target.
+   are **empty by default** (fork §4 — no outbound control-plane traffic);
+   with `CHEF_PROVISION_URL` set, provisioning runs through the local
+   `chef-provisioner` (3b.2 deployment-per-app). Hosted-plane dev sets the
+   two vars explicitly as the documented escape hatch. Generated-app deploy
+   to Atlas Convex + Gitea is the 3b.2 target.
 
 Upstream-workOS mode remains available by leaving `CHEF_OIDC_*` empty (the
 fork is env-gated), but it is not the deployment target.
