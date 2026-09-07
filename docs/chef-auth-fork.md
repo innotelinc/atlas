@@ -1,6 +1,6 @@
 # Chef Authentik Auth Fork — Scope & Design
 
-**Status: in progress — foundation + trust anchor + Authentik login flow landed (code, tsc-clean); provider signing key assigned and JWKS verified live; runtime browser verification + provisioning localization still pending** · September 2026
+**Status: in progress — foundation + trust anchor + Authentik login flow landed (code, tsc-clean); signing key assigned, JWKS verified live, and the full Authorization Code login round-trip verified end-to-end (2026-09-06); remaining: codegen deploy to Atlas Convex, production serve (3b.3), provisioning localization** · September 2026
 
 Upstream is cloned at `services/chef` (gitignored) and **pinned to
 `d8a6cb6`** (`Add 'us' to new anthropic models (#980)`). The repo-side
@@ -53,8 +53,29 @@ foundation (stage 3a env plumbing) is in `docker-compose.yml` /
     `10bac83b7ee12170a8d618c2ad8ee794`, x5c subject "authentik Self-signed
     Certificate", valid 2026-09-04 → 2027-09-05), so Convex `customJwt`
     validation now has a key to check against.
-  - **Still required**: deploy codegen to Atlas Convex and run the browser
-    flow (3c).
+  - **`chef-up` runs (dev mode)** — the checkout gained a `Dockerfile` +
+    `.dockerignore` (dev container: `pnpm dev` → `remix vite:dev` pinned to
+    `0.0.0.0:4310` in `vite.config.ts`) and `docker-compose.yml` now forwards
+    `ANTHROPIC_API_KEY`/`OPENAI_API_KEY` alongside `GOOGLE_`/`XAI_` (depscheck
+    needs at least one provider key). `CHEF_SESSION_SECRET` is set in `.env`
+    (HMAC cookie key).
+  - **Discovery URL fix** in `authentik.ts`: `new URL("/.well-known/…",
+    issuer)` was root-relative and dropped the per-provider issuer path
+    (`/application/o/atlas-chef/`) → 404; now built without the leading
+    slash so it resolves under the issuer.
+  - **Dev redirect registered in Authentik** (2026-09-06): provider 21's
+    `redirect_uris` gained `http://127.0.0.1:4310/api/auth/callback` (API
+    PATCH works for redirect URIs; the bootstrap-token RBAC quirk only
+    blocks the `signing_key` field).
+  - **End-to-end login verified** (2026-09-06): headless round-trip with a
+    disposable Authentik user — `/api/auth/start` → authorize → flow
+    executor (`uid_field` + password; note the 2026.8 API field rename from
+    `uid`) → authorization code → `/api/auth/callback` code exchange →
+    signed `chef_session` cookie → `/api/auth/session` returns the user with
+    id_token. Disposable user removed after the test.
+  - **Still required**: deploy codegen to Atlas Convex (so the SPA's
+    `convex.setAuth(id_token)` hand-off validates), production serve (3b.3),
+    and the in-browser verification (3c).
 
 Chef (the AI app builder) is the last Atlas surface that still talks to the
 outside world for identity: upstream Chef authenticates through Convex's
