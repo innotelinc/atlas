@@ -8,8 +8,9 @@ go live); every value is env-driven.
 ## Prerequisites
 
 - Docker Engine with the Compose plugin, git, openssl, curl.
-- Platform services reachable: Cerulean Authentik (`auth.cerulean.innotel.us`)
-  for SSO, Infisical for secrets, Cerulean DNS/TLS + NPM Edge for hosts.
+- Platform services reachable: Cerulean (`auth.cerulean.innotel.us`) for
+  Authentik SSO + DNS/TLS + NPM Edge hosts, Infisical for secrets,
+  Magnate (`magnate.innotel.us`) for paid developer-seat billing (optional).
 - For a dedicated Atlas host: a DNS pointer for `git.innotel.us` (CNAME to
   the apex) already provisioned through Cerulean.
 
@@ -79,6 +80,23 @@ make gateway-check   # verifies the mesh gateway is reachable
 If Zeus is down, Atlas model calls fail — start Group 2 first (`./stack.sh
 up 2` from the innotel-platform-stack repo).
 
+> **Shared with Distro.** Distro runs its own OmniRoute gateway in its compose
+> stack (Group 5, Server 5) but points at the same upstream provider pool.
+> Rotate provider keys once in the Zeus OmniRoute dashboard.
+
+## Stage 3b — Magnate (billing, optional)
+
+Atlas can gate paid developer seats via Magnate (RevenueOps). Set in `.env`:
+
+```env
+MAGNATE_URL=https://magnate.innotel.us
+ENTITLEMENTS_API_TOKEN=<must equal Magnate's ENTITLEMENTS_API_TOKEN>
+```
+
+Magnate is Cerulean/Authentik-first: subscriber accounts + passwords live in
+Cerulean's Authentik. Atlas checks entitlements server-to-server and never holds
+Stripe keys.
+
 ## Stage 4 — Chef (AI app builder)
 
 ```bash
@@ -125,6 +143,13 @@ docker run -d --name atlas-runner --restart unless-stopped \
   re-provision the NPM forwards — no code changes.
 - **Secrets:** `.env` is derived from Infisical; rotate provider keys in the
   OmniRoute dashboard, never in code.
+- **Billing (optional):** set `MAGNATE_URL` + `ENTITLEMENTS_API_TOKEN` (matching
+  Magnate's `ENTITLEMENTS_API_TOKEN`) to gate paid developer seats. Magnate is
+  Cerulean/Authentik-first — subscriber accounts live in Cerulean's Authentik.
+- **Distro export:** Distro (BuilderOps) can push built projects to this Atlas
+  instance's Gitea remotes. The remote SSH host is `git.<zone>` and the base URL
+  is `GITEA_ROOT_URL`; configure those in Distro's `.env` (`ATLAS_URL` +
+  `ATLAS_GIT_REMOTE`).
 - **Unified vs split:** this compose runs standalone on its own server or as
   part of an all-encompassing stack — only `.env` (forward addresses/ports)
   and edge provisioning differ (see the platform stack README).

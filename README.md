@@ -146,6 +146,20 @@ maintained in [web/landing/index.html](web/landing/index.html) and deployed by
 
 *Atlas — Build What's Next. © 2026*
 
+## License
+
+Atlas is licensed under the GNU Affero General Public License v3.0 or later
+(AGPL-3.0-or-later). See [LICENSE](LICENSE) for the full text.
+
+Atlas bundles four open-source components with their licenses retained in-tree:
+
+| Component | Upstream | License |
+|---|---|---|
+| Gitea | https://github.com/go-gitea/gitea | MIT |
+| Chef | https://github.com/get-convex/chef | Apache-2.0 |
+| Convex backend (self-hosted) | https://github.com/get-convex/convex-backend | Apache-2.0 |
+| OmniRoute | https://github.com/diegosouzapw/OmniRoute | — (vendor snapshot) |
+
 ## 🏛️ Platform stack
 
 Atlas is the ecosystem's **CodeOps** platform — source control, CI/CD, and

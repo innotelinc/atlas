@@ -145,3 +145,20 @@ Three wiring layers, in bring-up order:
 - **NPM Edge:** proxy hosts for each public Atlas host, forwarding to
   `127.0.0.1` ports of this stack (see `scripts/npm-proxy-hosts.py` pattern
   in sibling platforms / docs/Deployment.md).
+
+## Distro ↔ Atlas (BuilderOps ↔ CodeOps)
+
+Distro builds apps live in the browser; Atlas is the stack's CodeOps home
+(Gitea repos + Chef AI app builder on self-hosted Convex). The shared workflow:
+
+1. Describe an app in Distro → AI writes code in-browser (WebContainer).
+2. Export to Git → Distro pushes the project to an Atlas/Gitea remote
+   (`ATLAS_URL` + `ATLAS_GIT_REMOTE` in Distro's `.env`).
+3. Atlas receives the source; Chef can scaffold a Convex backend for it.
+4. Gitea + Gitea Actions CI/CD build and ship it.
+
+Both platforms consume the same Magnate instance for billing (RevenueOps) and
+the same Cerulean Authentik for identity / DNS / TLS (TrustOps). Atlas does not
+run its own OmniRoute gateway — Chef reaches the shared Zeus gateway over the
+WireGuard mesh; Distro runs its own gateway in its compose stack but points at
+the same upstream provider pool.
