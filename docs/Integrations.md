@@ -103,10 +103,12 @@ Three wiring layers, in bring-up order:
    with Cerulean's Authentik: register an OAuth2 provider (`atlas-chef`,
    redirect `https://chef.<zone>/api/auth/callback`), swap Chef's login flow
    for an Authorization Code Grant against Authentik, and clear
-   `VITE_PROVISION_HOST`/`BIG_BRAIN_HOST` so no traffic leaves the box.
-   Until that fork lands, `make chef-up` runs Chef in local-dev mode
-   (`pnpm run dev` on `:4310` — the fork pins the port; upstream defaults to
-   `:5173`) against Atlas Convex.
+   `VITE_PROVISION_HOST`/`BIG_BRAIN_HOST` so no traffic leaves the box. The
+   fork is **landed and serving in production mode**: `make chef-up` builds
+   the fork image (`pnpm build` + `remix-serve` on `:4310`, workstream 3b.3)
+   and the login round-trip works end-to-end against Authentik. Clearing the
+   hosted-plane envs is gated on provisioning localization (3b.2) so that
+   project creation still functions; until then the defaults stay.
    Full scope, workstreams, and the open design questions (project model on
    self-hosted Convex, deploy tokens, git push path) live in
    [docs/chef-auth-fork.md](chef-auth-fork.md).

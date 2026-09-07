@@ -85,15 +85,19 @@ up 2` from the innotel-platform-stack repo).
 make chef-up       # docker compose --profile chef up -d --build
 ```
 
-Chef runs from upstream source (`services/chef`). Two operating modes:
+Chef runs from upstream source (`services/chef`). Operating mode:
 
-1. **Local-dev mode (default, upstream auth):** Chef's login uses the Convex
-   hosted control plane — fine for a single operator or LAN use.
-2. **Fully self-hosted (Authentik fork):** apply the documented auth fork
-   (see [Integrations.md](Integrations.md) — *Auth fork*) so Chef logs in
-   through Cerulean's Authentik, clear `VITE_PROVISION_HOST`/`BIG_BRAIN_HOST`,
-   then rebuild. This is the production target and the point where generated
-   apps deploy straight to Atlas Convex and land in Gitea.
+1. **Authentik fork (default on this box):** `make chef-up` builds the fork's
+   production image (`pnpm build` + `remix-serve` on `:4310`, fork workstream
+   3b.3) and Chef logs in through Cerulean's Authentik (`atlas-chef` OIDC
+   client). The hosted-plane envs (`VITE_PROVISION_HOST`/`BIG_BRAIN_HOST`)
+   still default to `api.convex.dev` until provisioning localization (3b.2,
+   [chef-auth-fork.md](chef-auth-fork.md) §5 Q1/Q2) lands; clearing them
+   without that step would break project creation. Generated-app deploy to
+   Atlas Convex + Gitea is the 3b.2 target.
+
+Upstream-workOS mode remains available by leaving `CHEF_OIDC_*` empty (the
+fork is env-gated), but it is not the deployment target.
 
 ## Stage 5 — Actions CI (optional)
 

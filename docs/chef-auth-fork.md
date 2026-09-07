@@ -1,6 +1,6 @@
 # Chef Authentik Auth Fork — Scope & Design
 
-**Status: in progress — foundation + trust anchor + Authentik login flow landed (code, tsc-clean); signing key assigned, JWKS verified live, and the full Authorization Code login round-trip verified end-to-end (2026-09-06); remaining: codegen deploy to Atlas Convex, production serve (3b.3), provisioning localization** · September 2026
+**Status: in progress — Authentik login flow landed and E2E-verified; codegen deployed to Atlas Convex; production serve (3b.3) landed and verified (2026-09-06/07: container serves the remix build, `/api/auth/start` → Authentik 302 with PKCE). Remaining: provisioning localization (3b.2 — needs the owner decisions in §5 Q1/Q2) and the in-browser verification + egress proof (3c).** · September 2026
 
 Upstream is cloned at `services/chef` (gitignored) and **pinned to
 `d8a6cb6`** (`Add 'us' to new anthropic models (#980)`). The repo-side
@@ -53,9 +53,29 @@ foundation (stage 3a env plumbing) is in `docker-compose.yml` /
     `10bac83b7ee12170a8d618c2ad8ee794`, x5c subject "authentik Self-signed
     Certificate", valid 2026-09-04 → 2027-09-05), so Convex `customJwt`
     validation now has a key to check against.
-  - **`chef-up` runs (dev mode)** — the checkout gained a `Dockerfile` +
-    `.dockerignore` (dev container: `pnpm dev` → `remix vite:dev` pinned to
-    `0.0.0.0:4310` in `vite.config.ts`) and `docker-compose.yml` now forwards
+  - **`chef-up` serves a production build (3b.3, landed 2026-09-07)** — the
+    checkout `Dockerfile` now runs `pnpm build` (`remix vite:build`) at image
+    build time and serves the result with `pnpm start` (`remix-serve
+    build/server/index.js`), replacing the earlier dev-mode `pnpm dev`
+    container. Client-side `VITE_*` envs are inlined at build time, so
+    `docker-compose.yml` passes `VITE_CONVEX_URL` / `VITE_PROVISION_HOST` as
+    build args with the same defaults as the runtime env lines. The install
+    step caps its heap and child concurrency (`--child-concurrency=2`) so the
+    large dep tree builds on memory-constrained hosts.
+  - **Prod-build fix (3b.3)**: `api.auth.signout.ts` imported
+    `~/lib/.server/auth-session` at module top level, which makes
+    `remix vite:build` fail ("Server-only module referenced by client") for
+    that resource route; the server helpers are now imported dynamically
+    inside `action`, and the prod build completes (all `api.auth.*` chunks
+    correctly empty on the client).
+  - **Prod container verified** (2026-09-07): `atlas-chef` serves `GET /` →
+    200 and `/api/health` → 200; `GET /api/auth/start` → 302 to
+    `auth.cerulean.innotel.us/application/o/authorize/` with
+    `client_id=atlas-chef`, the registered `127.0.0.1:4310/api/auth/callback`
+    redirect, PKCE `code_challenge`, and the httpOnly verifier/state cookies.
+  - Earlier dev-mode bring-up (history): the checkout's `Dockerfile` was
+    originally a dev container (`pnpm dev` → `remix vite:dev` pinned to
+    `0.0.0.0:4310`) and `docker-compose.yml` forwards
     `ANTHROPIC_API_KEY`/`OPENAI_API_KEY` alongside `GOOGLE_`/`XAI_` (depscheck
     needs at least one provider key). `CHEF_SESSION_SECRET` is set in `.env`
     (HMAC cookie key).
@@ -73,9 +93,10 @@ foundation (stage 3a env plumbing) is in `docker-compose.yml` /
     `uid`) → authorization code → `/api/auth/callback` code exchange →
     signed `chef_session` cookie → `/api/auth/session` returns the user with
     id_token. Disposable user removed after the test.
-  - **Still required**: deploy codegen to Atlas Convex (so the SPA's
-    `convex.setAuth(id_token)` hand-off validates), production serve (3b.3),
-    and the in-browser verification (3c).
+  - **Still required**: provisioning localization (3b.2 — project creation
+    and deploy tokens served by Atlas Convex instead of the hosted plane; see
+    §5 Q1/Q2, which need an owner decision before coding) and the in-browser
+    verification + egress proof (3c) once 3b.2 lands.
 
 Chef (the AI app builder) is the last Atlas surface that still talks to the
 outside world for identity: upstream Chef authenticates through Convex's
