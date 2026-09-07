@@ -1,6 +1,6 @@
 # Chef Authentik Auth Fork — Scope & Design
 
-**Status: in progress — Authentik login flow landed and E2E-verified; codegen deployed to Atlas Convex; production serve (3b.3) landed and verified (2026-09-06/07: container serves the remix build, `/api/auth/start` → Authentik 302 with PKCE). Provisioning localization (3b.2) has landed its **deployment-per-app infrastructure** — a `chef-provisioner` service (verified: spawns a `chef-proj-<slug>` convex-backend container with its own admin key, lists, deletes) — with the convex-side adapter (create/list/delete over `CHEF_PROVISION_URL`) still to wire. Remaining after that: in-browser verification + egress proof (3c).** · September 2026
+**Status: in progress — Authentik login flow landed and E2E-verified; codegen deployed to Atlas Convex; production serve (3b.3) landed and verified (2026-09-06/07: container serves the remix build, `/api/auth/start` → Authentik 302 with PKCE). Provisioning localization (3b.2) has landed its **deployment-per-app infrastructure** (`chef-provisioner`, verified) **plus the env-gated convex adapter** (deployed, typechecked). Remaining: the fork-mode UI trigger + teams sweep, the deploy-target pointer, then the in-browser verification + egress proof (3c).** · September 2026
 
 Upstream is cloned at `services/chef` (gitignored) and **pinned to
 `d8a6cb6`** (`Add 'us' to new anthropic models (#980)`). The repo-side
@@ -101,13 +101,19 @@ foundation (stage 3a env plumbing) is in `docker-compose.yml` /
     admin key from `generate_admin_key.sh`, compose-network-only ports).
     Verified live (2026-09-07): `POST /projects` → container running with
     `deploymentUrl` + `adminKey`; `DELETE` removes container + volume.
-  - **Still required (3b.2)**: the convex-side adapter — replace the hosted
-    `create_project`/`authorize` calls in `convexProjects.ts` and the
-    list/delete calls in `messages.ts` with calls to
-    `CHEF_PROVISION_URL` (env-gated, hosted behavior unchanged when empty),
-    a fork-mode (no `workosAccessToken`) trigger for the connect flow, and
-    pointing `deploy.ts`/`deploy-simple.ts` at the per-app backend. After
-    that: the in-browser verification + egress proof (3c).
+  - **Convex-side adapter landed + deployed (3b.2, 2026-09-07)** — fork
+    commit in the checkout: when `CHEF_PROVISION_URL` is set on the Convex
+    backend, `startProvisionLocalProject`/
+    `connectLocalProjectForChat` provision the per-app backend through the
+    provisioner and record its deploy key under teamSlug `local`; chat
+    deletion (`messages.tryDeleteProject`) removes the backend the same way.
+    Hosted-plane behavior is unchanged while the env is empty. Typechecked
+    and deployed to the Atlas Convex backend.
+  - **Still required (3b.2)**: the fork-mode UI trigger + teams sweep (the
+    chat/connect UI is team-centric; fork mode needs to bypass team selection
+    and call `startProvisionLocalProject`) and pointing `deploy.ts`/
+    `deploy-simple.ts` at the per-app deployment URL/key from the recorded
+    credentials. After that: the in-browser verification + egress proof (3c).
 
 Chef (the AI app builder) is the last Atlas surface that still talks to the
 outside world for identity: upstream Chef authenticates through Convex's
