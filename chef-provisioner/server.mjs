@@ -34,6 +34,8 @@
 import http from "node:http";
 import { execFile } from "node:child_process";
 import crypto from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
 
 const PORT = parseInt(process.env.PORT || "9080", 10);
 const TOKEN = process.env.CHEF_PROVISION_TOKEN || "";
@@ -42,6 +44,35 @@ const IMAGE =
   process.env.CHEF_CONVEX_IMAGE ||
   `ghcr.io/get-convex/convex-backend:${process.env.CHEF_CONVEX_VERSION || "latest"}`;
 const DATA_VOLUME_PREFIX = process.env.CHEF_DATA_VOLUME_PREFIX || "chef-proj-data";
+
+// Static site hosting (generated apps): the compose service mounts this
+// directory on the host and an nginx container serves it. Files are written
+// here from the per-project Docker volumes (read via a helper container).
+const SITES_DIR = process.env.CHEF_SITES_DIR || "/srv/sites";
+const MAX_SITE_ZIP_BYTES = 512 * 1024 * 1024;
+
+// Slugs whose containers were removed but whose static files are still
+// deployed. Compose re-applies the current label set on `up`, so the nginx
+// label block is regenerated on every boot to stay in sync.
+const DELETED_FILE = path.join(SITES_DIR, ".deleted-slugs");
+const SITES_HOST_HEADER = process.env.CHEF_SITES_HOST || "chef-sites:8080";
+
+function loadDeletedSlugs() {
+  try {
+    return new Set(fs.readFileSync(DELETED_FILE, "utf8").split("\n").map((l) => l.trim()).filter(Boolean));
+  } catch {
+    return new Set();
+  }
+}
+
+function saveDeletedSlugs(set) {
+  fs.mkdirSync(SITES_DIR, { recursive: true });
+  fs.writeFileSync(DELETED_FILE, [...set].join("\n") + "\n");
+}
+
+function deletedSetLine(slugs) {
+  return `"-e", "CHEF_DELETED_SLUGS=${[...slugs].join(",")}"`;
+}
 
 function slugify(name) {
   const slug = String(name || "")
@@ -127,6 +158,8 @@ function authOk(req) {
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
+// Binary-safe body reader: returns a Buffer (callers decode to UTF-8 only
+// for JSON bodies; site uploads are zip bytes and must survive untouched).
 function readBody(req, limit = 1 << 20) {
   return new Promise((resolve, reject) => {
     let size = 0;
@@ -140,7 +173,7 @@ function readBody(req, limit = 1 << 20) {
       }
       chunks.push(c);
     });
-    req.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
+    req.on("end", () => resolve(Buffer.concat(chunks)));
     req.on("error", reject);
   });
 }
@@ -161,7 +194,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "POST" && p === "/projects") {
       let body;
       try {
-        body = JSON.parse((await readBody(req)) || "{}");
+        body = JSON.parse(((await readBody(req))?.toString("utf8")) || "{}");
       } catch {
         return writeJson(res, 400, { error: "invalid JSON body" });
       }
@@ -214,12 +247,16 @@ const server = http.createServer(async (req, res) => {
       if (!adminKey) {
         return writeJson(res, 500, { error: `${name} healthy but admin key could not be read` });
       }
+      // The new project can now receive static deploys; drop any deleted-mark.
+      const deleted = loadDeletedSlugs();
+      if (deleted.delete(slug)) saveDeletedSlugs(deleted);
 
       return writeJson(res, 201, {
         name,
         slug,
         deploymentUrl: origin,
         deploymentName: name,
+        siteUrl: `http://${SITES_HOST_HEADER}/sites/${slug}/`,
         adminKey,
         status: "running",
       });
@@ -255,7 +292,84 @@ const server = http.createServer(async (req, res) => {
       if (req.method === "DELETE") {
         await docker(["rm", "-f", name]).catch(() => {});
         await docker(["volume", "rm", "-f", `${DATA_VOLUME_PREFIX}-${slug}`]).catch(() => {});
+        // Keep deployed static files, but remember the deletion so the nginx
+        // label block stops routing it even before the next `up` re-applies
+        // labels. POST /projects un-marks when the slug is reused.
+        const deleted = loadDeletedSlugs();
+        deleted.add(slug);
+        saveDeletedSlugs(deleted);
         return writeJson(res, 200, { ok: true, slug });
+      }
+    }
+
+    // ─── static site deploys (generated apps) ──────────────────────────────
+    const sm = /^\/sites\/([a-z0-9][a-z0-9-]*)(?:\/(.*))?$/.exec(p);
+    if (sm) {
+      const slug = sm[1];
+      const name = containerName(slug);
+      const siteRoot = path.join(SITES_DIR, slug);
+
+      // PUT/POST: replace the site from a uploaded zip (or bare file).
+      if (req.method === "PUT" || req.method === "POST") {
+        const buffer = await readBody(req, MAX_SITE_ZIP_BYTES);
+        if (!buffer.length) {
+          return writeJson(res, 400, { error: "empty upload" });
+        }
+        const inspect = await dockerJson(["inspect", name]).catch(() => null);
+        if (!inspect?.[0]) {
+          return writeJson(res, 404, { error: `no backend for ${slug}` });
+        }
+        try {
+          const tmpZip = `/tmp/chef-site-${slug}-${Date.now()}.zip`;
+          fs.writeFileSync(tmpZip, buffer);
+          const tmpOut = `/tmp/chef-site-${slug}-${Date.now()}`;
+          fs.mkdirSync(tmpOut, { recursive: true });
+          // unzip is present on the node:22-alpine provisioner image via busybox? No —
+          // install unzip in the Dockerfile. Use `unzip -o` so redeploys overwrite.
+          await new Promise((resolve, reject) => {
+            execFile("unzip", ["-o", tmpZip, "-d", tmpOut], { maxBuffer: 8 * 1024 * 1024 }, (err) =>
+              err ? reject(err) : resolve(),
+            );
+          });
+          // Flatten a single top-level directory (zip made from `dist/`).
+          const entries = fs.readdirSync(tmpOut);
+          const srcDir = entries.length === 1 && fs.statSync(path.join(tmpOut, entries[0])).isDirectory()
+            ? path.join(tmpOut, entries[0])
+            : tmpOut;
+          fs.rmSync(siteRoot, { recursive: true, force: true });
+          fs.mkdirSync(path.dirname(siteRoot), { recursive: true });
+          // /tmp and /srv/sites can be different filesystems — copy + drop,
+          // don't rename.
+          fs.cpSync(srcDir, siteRoot, { recursive: true });
+          fs.rmSync(tmpZip, { force: true });
+          fs.rmSync(tmpOut, { recursive: true, force: true });
+          const files = countFiles(siteRoot);
+          return writeJson(res, 201, {
+            ok: true,
+            slug,
+            siteUrl: `http://${SITES_HOST_HEADER}/sites/${slug}/`,
+            files,
+          });
+        } catch (e) {
+          return writeJson(res, 500, { error: `site deploy failed: ${e.message}` });
+        }
+      }
+
+      // DELETE: remove the deployed files for this slug.
+      if (req.method === "DELETE") {
+        fs.rmSync(siteRoot, { recursive: true, force: true });
+        const deleted = loadDeletedSlugs();
+        deleted.add(slug);
+        saveDeletedSlugs(deleted);
+        return writeJson(res, 200, { ok: true, slug });
+      }
+
+      // GET: deploy status.
+      if (req.method === "GET") {
+        if (!fs.existsSync(siteRoot)) {
+          return writeJson(res, 404, { error: `no site deployed for ${slug}` });
+        }
+        return writeJson(res, 200, { slug, siteUrl: `http://${SITES_HOST_HEADER}/sites/${slug}/`, files: countFiles(siteRoot) });
       }
     }
 
@@ -265,6 +379,22 @@ const server = http.createServer(async (req, res) => {
     if (!res.headersSent) writeJson(res, 500, { error: err.message || "internal error" });
   }
 });
+
+function countFiles(dir) {
+  let n = 0;
+  const walk = (d) => {
+    for (const entry of fs.readdirSync(d, { withFileTypes: true })) {
+      if (entry.isDirectory()) walk(path.join(d, entry.name));
+      else n++;
+    }
+  };
+  try {
+    walk(dir);
+  } catch {
+    /* removed concurrently */
+  }
+  return n;
+}
 
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`[chef-provisioner] listening on :${PORT} (network ${NETWORK}, image ${IMAGE})`);

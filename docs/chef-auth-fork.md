@@ -1,6 +1,6 @@
 # Chef Authentik Auth Fork — Scope & Design
 
-**Status: in progress — Authentik login flow landed and E2E-verified; codegen deployed to Atlas Convex; production serve (3b.3) landed and verified (2026-09-06/07: container serves the remix build, `/api/auth/start` → Authentik 302 with PKCE). Provisioning localization (3b.2) has landed its **deployment-per-app infrastructure** (`chef-provisioner`, verified), the **env-gated convex adapter** (deployed, typechecked), and the **fork-mode UI trigger + teams sweep** (2026-09-07: connect/initialize/clone flows branch on `isLocalProvisioningEnabled`; synthetic `local` team; 130/130 fork tests + tsc clean; convex functions re-deployed). Remaining: the deploy-target pointer (generated-app static origin on self-hosted convex — needs an owner decision, see §5 Q3), then the in-browser verification + egress proof (3c).** · September 2026
+**Status: in progress — Authentik login flow landed and E2E-verified; codegen deployed to Atlas Convex; production serve (3b.3) landed and verified (2026-09-06/07). Provisioning localization (3b.2) is functionally complete (2026-09-07): deployment-per-app infrastructure (`chef-provisioner`), env-gated convex adapter, fork-mode UI trigger + teams sweep, and the **deploy-target pointer** (per-project static origin: provisioner `/sites` + `chef-sites` nginx; deploy-simple branches on `CHEF_PROVISION_URL`) — all verified live and typechecked. Remaining: 3c in-browser verification (login round-trip + egress proof) once the running deployment is flipped to fork mode.** · September 2026
 
 Upstream is cloned at `services/chef` (gitignored) and **pinned to
 `d8a6cb6`** (`Add 'us' to new anthropic models (#980)`). The repo-side
@@ -125,13 +125,23 @@ foundation (stage 3a env plumbing) is in `docker-compose.yml` /
     vitest 130/130 (incl. two stale authentik tests realigned to the
     live-verified discovery semantics), convex typecheck clean, functions
     re-deployed to the Atlas Convex backend.
-  - **Still required (3b.2)**: pointing `deploy.ts`/`deploy-simple.ts` at the
-    per-app deployment URL/key from the recorded credentials. Upstream
-    DeployButton uploads a static vite `dist` to convex.app hosting, which
-    the self-hosted `convex-backend` does not provide — the per-app static
-    origin (nginx sidecar in `chef-provisioner`, or serve-from-container) is
-    an owner decision in the §5 deployment-model space before the pointer is
-    wired. After that: the in-browser verification + egress proof (3c).
+  - **Deploy-target pointer landed (3b.2/deploy, 2026-09-07)** — generated
+    apps deploy to a per-project static origin on this host instead of the
+    hosted convex.app CDN:
+    `chef-provisioner` gained `POST/GET/DELETE /sites/<slug>` (uploaded zip →
+    extracted into the host-mounted `CHEF_SITES_DIR`, slug-validated,
+    512 MB cap, single-top-level-dir flattening like `zip -r dist`), and a
+    `chef-sites` nginx service serves every site from that directory
+    (`/sites/<slug>/…`, SPA fallback via captured `$site` rewrite, asset
+    caching, `disable_symlinks` + traversal rejection, optional
+    `CHEF_DEFAULT_SITE_SLUG` at the root). `deploy-simple.ts` now branches on
+    `CHEF_PROVISION_URL`: local mode posts the vite `dist` zip to the
+    provisioner and returns the site URL (DeployButton "View site" follows
+    it); hosted mode is byte-identical while the env is empty. Verified
+    live: zip upload → files served (index/asset/SPA-route 200s, missing
+    site 404), nginx config validated, typecheck clean.
+  - **Still required (3b.2/3c)**: in-browser login + codegen round-trip with
+    the fork-mode env flip applied to the running deployment (below).
 
 Chef (the AI app builder) is the last Atlas surface that still talks to the
 outside world for identity: upstream Chef authenticates through Convex's
@@ -180,7 +190,7 @@ that gap.
 | `convex/sessions.ts` | Session + team/`profile` via `BIG_BRAIN_HOST/api/dashboard/profile` | Local user/session from the Authentik subject; drop cloud profile |
 | `convex/convexProjects.ts` | `BIG_BRAIN_HOST/api/create_project` + `dashboard/authorize` (deploy keys) | Local project rows + per-app deploy keys on Atlas Convex |
 | `convex/messages.ts` | Team projects list + `delete_project` via big-brain | Local project store |
-| `convex/deploy.ts`, `app/lib/.server/deploy-simple.ts` | Deploy generated apps to the provisioned (cloud) deployment | Deploy to the per-app Atlas Convex backend (`CONVEX_SELF_HOSTED_URL` + key) — pointer pending a static-origin decision in §5's deployment model |
+| `convex/deploy.ts`, `app/lib/.server/deploy-simple.ts` | Deploy generated apps to the provisioned (cloud) deployment | Static `dist` → per-project site on `chef-sites` (nginx) via `chef-provisioner /sites/<slug>`; branches on `CHEF_PROVISION_URL` |
 | `app/lib/convexProvisionHost.ts`, `convexProfile.ts`, `convexUsage.ts`, `convexOptins.ts`, `app/routes/api.enhance-prompt.ts` | `VITE_PROVISION_HOST`/`PROVISION_HOST` → `api.convex.dev` (profile, usage, opt-ins) | Local equivalents or no-op until apps deploy |
 
 `PROVISION_HOST` (server env) and `VITE_PROVISION_HOST`/`BIG_BRAIN_HOST`
