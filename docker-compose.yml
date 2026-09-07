@@ -91,6 +91,11 @@ services:
       DO_NOT_REQUIRE_SSL: "1"
       DISABLE_BEACON: "1"
       RUST_LOG: ${RUST_LOG:-info}
+      # Fork workstream 3b.2 (provisioning localization): convex actions that
+      # provision per-app backends reach the chef-provisioner service through
+      # these (empty = hosted-plane behavior unchanged).
+      CHEF_PROVISION_URL: ${CHEF_PROVISION_URL:-}
+      CHEF_PROVISION_TOKEN: ${CHEF_PROVISION_TOKEN:-}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3210/version"]
       interval: 5s
@@ -159,9 +164,41 @@ services:
       CHEF_OIDC_CLIENT_SECRET: ${CHEF_OIDC_CLIENT_SECRET:-}
       CHEF_SESSION_SECRET: ${CHEF_SESSION_SECRET:-}
       IDP_ADMIN_GROUP: ${IDP_ADMIN_GROUP:-atlas-admins}
+      # Fork workstream 3b.2: per-app backend provisioning (server routes).
+      CHEF_PROVISION_URL: ${CHEF_PROVISION_URL:-}
+      CHEF_PROVISION_TOKEN: ${CHEF_PROVISION_TOKEN:-}
     depends_on:
       convex:
         condition: service_healthy
+
+  # ------------------------------------------------------------------
+  # Chef provisioner — per-app Convex backend lifecycle (fork workstream
+  # 3b.2, deployment-per-app). Owns the Docker socket on the chef profile
+  # and spawns one `convex-backend` container per generated app. See
+  # docs/chef-auth-fork.md §3b.2 and chef-provisioner/server.mjs.
+  # ------------------------------------------------------------------
+  chef-provisioner:
+    image: chef-provisioner:latest
+    profiles: ["chef"]
+    build:
+      context: ./chef-provisioner
+      dockerfile: Dockerfile
+    container_name: chef-provisioner
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      CHEF_PROVISION_TOKEN: ${CHEF_PROVISION_TOKEN:-}
+      CHEF_DOCKER_NETWORK: ${CHEF_DOCKER_NETWORK:-atlas_default}
+      CHEF_CONVEX_IMAGE: ghcr.io/get-convex/convex-backend:${CONVEX_VERSION:-latest}
+    ports:
+      - "127.0.0.1:${CHEF_PROVISIONER_PORT:-9080}:9080"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:9080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
 
 volumes:
   gitea-data:
