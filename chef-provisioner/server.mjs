@@ -180,14 +180,17 @@ function readBody(req, limit = 1 << 20) {
 
 const server = http.createServer(async (req, res) => {
   try {
-    if (!authOk(req)) {
-      return writeJson(res, 401, { error: "unauthorized" });
-    }
     const url = new URL(req.url, "http://localhost");
     const p = url.pathname;
 
+    // Liveness probe stays unauthenticated so container healthchecks work
+    // without embedding the provision token.
     if (req.method === "GET" && p === "/health") {
       return writeJson(res, 200, { ok: true });
+    }
+
+    if (!authOk(req)) {
+      return writeJson(res, 401, { error: "unauthorized" });
     }
 
     // POST /projects
