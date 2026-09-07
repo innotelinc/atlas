@@ -12,6 +12,7 @@ app, review the code in your own forge, and ship it — identity, secrets,
 DNS, and billing from the Innotel Platform Stack behind you.
 
 [![CI](https://github.com/innotelinc/atlas/actions/workflows/ci.yml/badge.svg)](https://github.com/innotelinc/atlas/actions/workflows/ci.yml)
+[![Conformity](https://github.com/innotelinc/atlas/actions/workflows/conform.yml/badge.svg)](https://github.com/innotelinc/atlas/actions/workflows/conform.yml)
 [![License: AGPL-3.0-or-later](https://img.shields.io/badge/license-AGPL--3.0-or-later-brightgreen.svg)](LICENSE)
 
 </div>
