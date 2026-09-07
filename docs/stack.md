@@ -17,6 +17,11 @@ generates full-stack applications onto a self-hosted realtime backend.
 - **Does not own:** identity, secrets, certificates/DNS, billing, storage
   (ONYX), or any production runtime of the platforms it helps build. Apps
   built in Atlas deploy to their owning platform; Atlas holds the source.
+- **Consumes (shared stack services):** Authentik (identity — via Cerulean),
+  Infisical (secrets), Cerulean (DNS + TLS + NPM edge hosts),
+  Magnate (billing/entitlements for paid dev seats — RevenueOps), NPM Edge.
+  Distro (BuilderOps) exports built apps to Atlas/Gitea and the two share the
+  same OmniRoute gateway pool, Magnate billing and Cerulean Authentik SSO.
 
 ## Why it exists
 
