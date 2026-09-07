@@ -1,6 +1,6 @@
 # Chef Authentik Auth Fork — Scope & Design
 
-**Status: in progress — Authentik login flow landed and E2E-verified; codegen deployed to Atlas Convex; production serve (3b.3) landed and verified (2026-09-06/07: container serves the remix build, `/api/auth/start` → Authentik 302 with PKCE). Provisioning localization (3b.2) has landed its **deployment-per-app infrastructure** (`chef-provisioner`, verified) **plus the env-gated convex adapter** (deployed, typechecked). Remaining: the fork-mode UI trigger + teams sweep, the deploy-target pointer, then the in-browser verification + egress proof (3c).** · September 2026
+**Status: in progress — Authentik login flow landed and E2E-verified; codegen deployed to Atlas Convex; production serve (3b.3) landed and verified (2026-09-06/07: container serves the remix build, `/api/auth/start` → Authentik 302 with PKCE). Provisioning localization (3b.2) has landed its **deployment-per-app infrastructure** (`chef-provisioner`, verified), the **env-gated convex adapter** (deployed, typechecked), and the **fork-mode UI trigger + teams sweep** (2026-09-07: connect/initialize/clone flows branch on `isLocalProvisioningEnabled`; synthetic `local` team; 130/130 fork tests + tsc clean; convex functions re-deployed). Remaining: the deploy-target pointer (generated-app static origin on self-hosted convex — needs an owner decision, see §5 Q3), then the in-browser verification + egress proof (3c).** · September 2026
 
 Upstream is cloned at `services/chef` (gitignored) and **pinned to
 `d8a6cb6`** (`Add 'us' to new anthropic models (#980)`). The repo-side
@@ -109,11 +109,29 @@ foundation (stage 3a env plumbing) is in `docker-compose.yml` /
     deletion (`messages.tryDeleteProject`) removes the backend the same way.
     Hosted-plane behavior is unchanged while the env is empty. Typechecked
     and deployed to the Atlas Convex backend.
-  - **Still required (3b.2)**: the fork-mode UI trigger + teams sweep (the
-    chat/connect UI is team-centric; fork mode needs to bypass team selection
-    and call `startProvisionLocalProject`) and pointing `deploy.ts`/
-    `deploy-simple.ts` at the per-app deployment URL/key from the recorded
-    credentials. After that: the in-browser verification + egress proof (3c).
+  - **Fork-mode UI trigger + teams sweep landed (3b.2, 2026-09-07)** — fork
+    commit in the checkout. `convex/convexProjects.ts` now exposes an
+    `isLocalProvisioningEnabled` query and its provisioning dispatcher
+    (`startProvisionConvexProjectHelper`) routes to
+    `startProvisionLocalProjectHelper` when `CHEF_PROVISION_URL` is set, so
+    `initializeChat`/`share.clone` work without a team/WorkOS token.
+    Client side: `ConvexConnectButton` drops the team picker and calls
+    `startProvisionLocalProject`; `useInitializeChat` + the share-clone route
+    initialize without `projectInitParams`; `useTeamsInitializer` seeds a
+    synthetic `local` team (no hosted `/api/dashboard/teams` call); usage
+    telemetry and the chat quota check short-circuit for `local` so nothing
+    reaches the provision host. Hosted-plane behavior is byte-identical while
+    `CHEF_PROVISION_URL` is empty. Verified: full-app `tsc --noEmit` clean,
+    vitest 130/130 (incl. two stale authentik tests realigned to the
+    live-verified discovery semantics), convex typecheck clean, functions
+    re-deployed to the Atlas Convex backend.
+  - **Still required (3b.2)**: pointing `deploy.ts`/`deploy-simple.ts` at the
+    per-app deployment URL/key from the recorded credentials. Upstream
+    DeployButton uploads a static vite `dist` to convex.app hosting, which
+    the self-hosted `convex-backend` does not provide — the per-app static
+    origin (nginx sidecar in `chef-provisioner`, or serve-from-container) is
+    an owner decision in the §5 deployment-model space before the pointer is
+    wired. After that: the in-browser verification + egress proof (3c).
 
 Chef (the AI app builder) is the last Atlas surface that still talks to the
 outside world for identity: upstream Chef authenticates through Convex's
@@ -162,7 +180,7 @@ that gap.
 | `convex/sessions.ts` | Session + team/`profile` via `BIG_BRAIN_HOST/api/dashboard/profile` | Local user/session from the Authentik subject; drop cloud profile |
 | `convex/convexProjects.ts` | `BIG_BRAIN_HOST/api/create_project` + `dashboard/authorize` (deploy keys) | Local project rows + per-app deploy keys on Atlas Convex |
 | `convex/messages.ts` | Team projects list + `delete_project` via big-brain | Local project store |
-| `convex/deploy.ts`, `app/lib/.server/deploy-simple.ts` | Deploy generated apps to the provisioned (cloud) deployment | Deploy to the per-app Atlas Convex backend (`CONVEX_SELF_HOSTED_URL` + key) |
+| `convex/deploy.ts`, `app/lib/.server/deploy-simple.ts` | Deploy generated apps to the provisioned (cloud) deployment | Deploy to the per-app Atlas Convex backend (`CONVEX_SELF_HOSTED_URL` + key) — pointer pending a static-origin decision in §5's deployment model |
 | `app/lib/convexProvisionHost.ts`, `convexProfile.ts`, `convexUsage.ts`, `convexOptins.ts`, `app/routes/api.enhance-prompt.ts` | `VITE_PROVISION_HOST`/`PROVISION_HOST` → `api.convex.dev` (profile, usage, opt-ins) | Local equivalents or no-op until apps deploy |
 
 `PROVISION_HOST` (server env) and `VITE_PROVISION_HOST`/`BIG_BRAIN_HOST`
