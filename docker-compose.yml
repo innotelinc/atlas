@@ -129,10 +129,16 @@ services:
     build:
       context: ./services/chef
       dockerfile: Dockerfile
+      # Client-side envs are inlined by remix/vite at image build time, so the
+      # same defaults the runtime env lines use are passed through as build
+      # args (production serve, fork workstream 3b.3).
+      args:
+        VITE_CONVEX_URL: ${VITE_CONVEX_URL:-http://127.0.0.1:3210}
+        VITE_PROVISION_HOST: ${VITE_PROVISION_HOST:-https://api.convex.dev}
     restart: unless-stopped
     ports:
-      # 4310 = Chef app port (vite/remix set to 4310 in the auth fork; PORT env below
-      # covers the production server) — avoids the common 5173 Vite dev default.
+      # 4310 = Chef app port (remix-serve honors PORT; the auth fork moved off
+      # the Vite 5173 default) — avoids colliding with other dev servers.
       - "127.0.0.1:${CHEF_PORT:-4310}:4310"
     environment:
       PORT: "${CHEF_PORT:-4310}"
