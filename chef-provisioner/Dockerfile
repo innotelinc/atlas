@@ -1,9 +1,11 @@
 # Atlas Chef provisioner — deployment-per-app Convex backends (fork 3b.2).
 # Node HTTP service that shells out to the docker CLI (mounted host socket)
-# to spawn one convex-backend container per Chef project.
+# to spawn one convex-backend container per Chef project, plus static site
+# hosting for the generated apps (uploaded zips extracted to /srv/sites).
 FROM docker:cli AS docker-cli
 
 FROM node:22-alpine
+RUN apk add --no-cache unzip nginx
 COPY --from=docker-cli /usr/local/bin/docker /usr/local/bin/docker
 WORKDIR /app
 COPY server.mjs /app/server.mjs

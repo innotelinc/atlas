@@ -170,7 +170,9 @@ services:
       CHEF_OIDC_CLIENT_SECRET: ${CHEF_OIDC_CLIENT_SECRET:-}
       CHEF_SESSION_SECRET: ${CHEF_SESSION_SECRET:-}
       IDP_ADMIN_GROUP: ${IDP_ADMIN_GROUP:-atlas-admins}
-      # Fork workstream 3b.2: per-app backend provisioning (server routes).
+      # Fork workstream 3b.2: per-app backend provisioning (server routes)
+      # and static site deploys (deploy target). The URL is reachable from
+      # the chef container on the compose network.
       CHEF_PROVISION_URL: ${CHEF_PROVISION_URL:-}
       CHEF_PROVISION_TOKEN: ${CHEF_PROVISION_TOKEN:-}
     depends_on:
@@ -193,18 +195,45 @@ services:
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      # Static site deploys for generated apps land here (extracted from the
+      # uploaded zips); shared with chef-sites for nginx to serve.
+      - ${CHEF_SITES_DIR:-./data/chef-sites}:/srv/sites
     environment:
       CHEF_PROVISION_TOKEN: ${CHEF_PROVISION_TOKEN:-}
       CHEF_DOCKER_NETWORK: ${CHEF_DOCKER_NETWORK:-atlas_default}
       CHEF_CONVEX_IMAGE: ghcr.io/get-convex/convex-backend:${CONVEX_VERSION:-latest}
+      CHEF_SITES_HOST: ${CHEF_SITES_HOST:-chef-sites:8080}
     ports:
       - "127.0.0.1:${CHEF_PROVISIONER_PORT:-9080}:9080"
+    # Site uploads (generated-app static builds) arrive on /sites/<slug>.
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:9080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 5s
+
+  # ------------------------------------------------------------------
+  # Chef sites — static origin for generated apps (fork 3b.2/deploy
+  # target). One nginx worker serving every chef-proj-* volume through
+  # /srv/sites, with a per-project server block selected by the
+  # X-Chef-Project header (see chef-provisioner/nginx-sites.conf).
+  # ------------------------------------------------------------------
+  chef-sites:
+    image: nginx:alpine
+    profiles: ["chef"]
+    container_name: chef-sites
+    restart: unless-stopped
+    depends_on: [chef-provisioner]
+    environment:
+      # Substituted into the config template by nginx's docker-entrypoint.
+      CHEF_DEFAULT_SITE_SLUG: ${CHEF_DEFAULT_SITE_SLUG:-}
+    volumes:
+      - ${CHEF_SITES_DIR:-./data/chef-sites}:/srv/sites:ro
+      # nginx's docker-entrypoint envsubts *.template files into conf.d.
+      - ./chef-provisioner/nginx-sites.conf:/etc/nginx/templates/default.conf.template:ro
+    ports:
+      - "127.0.0.1:${CHEF_SITES_PORT:-8082}:8080"
 
 volumes:
   gitea-data:
