@@ -83,8 +83,8 @@ services:
     stop_signal: SIGINT
     restart: unless-stopped
     ports:
-      - "127.0.0.1:${CONVEX_BACKEND_PORT:-3210}:3210"
-      - "127.0.0.1:${CONVEX_SITE_PORT:-3211}:3211"
+      - "${CONVEX_BACKEND_PORT:-3210}:3210"
+      - "${CONVEX_SITE_PORT:-3211}:3211"
     volumes:
       - convex-data:/convex/data
     environment:
@@ -150,7 +150,7 @@ services:
     ports:
       # 4310 = Chef app port (remix-serve honors PORT; the auth fork moved off
       # the Vite 5173 default) — avoids colliding with other dev servers.
-      - "127.0.0.1:${CHEF_PORT:-4310}:4310"
+      - "${CHEF_PORT:-4310}:4310"
     environment:
       PORT: "${CHEF_PORT:-4310}"
       VITE_CONVEX_URL: ${VITE_CONVEX_URL:-http://127.0.0.1:3210}
