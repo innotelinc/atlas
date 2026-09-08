@@ -17,6 +17,10 @@ services:
   # package registry, and Actions CI. SSO via Authentik (Cerulean).
   # ------------------------------------------------------------------
   gitea:
+    # Memory posture (docs/service-audit.md): git server with Actions CI;
+    # cap moderately (measured steady well under 1 GiB).
+    mem_limit: 2g
+    memswap_limit: 2g
     image: gitea/gitea:${GITEA_VERSION:-1.27.2}
     container_name: atlas-gitea
     restart: unless-stopped
