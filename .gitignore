@@ -40,3 +40,8 @@ Thumbs.db
 omniroute-data/
 convex-data/
 gitea-data/
+
+# Cerulean Vault token copies (data/vault/token/<product>.token) — live credentials.
+data/vault/token/
+data/vault/init/
+data/vault/file/
