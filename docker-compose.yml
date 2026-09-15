@@ -3,10 +3,12 @@
 #
 # Default services (docker compose up -d): Gitea (repo & development
 # hosting) and the self-hosted Convex backend + dashboard (the reactive
-# backend Chef builds apps onto). Profiles are opt-in and additive:
+# backend apps deploy onto). One stack, no profiles:
 #
 #   docker compose up -d                       # Gitea + Convex + dashboard
-#   docker compose --profile chef up -d        # Chef AI app builder (from source)
+#
+# The `chef` profile is gone — Chef is retired as a builder (see the note
+# where it used to live, further down, and the convergence plan §2/§8).
 # ==========================================================================
 
 name: atlas
@@ -71,8 +73,10 @@ services:
       retries: 6
 
   # ------------------------------------------------------------------
-  # Convex backend — self-hosted reactive database & compute (Chef's
-  # app-building target). SQLite storage on a named volume by default.
+  # Convex backend — self-hosted reactive database & compute, and a deploy
+  # target for apps the builder produces (convergence §2: Atlas keeps CodeOps,
+  # and Convex with it, while the *building* happens in Olympus). SQLite
+  # storage on a named volume by default.
   # Publish ports to 127.0.0.1; the edge (NPM) fronts them publicly and
   # Cerulean attaches TLS. See docs/Deployment.md for Postgres/S3 options.
   # ------------------------------------------------------------------
@@ -95,11 +99,6 @@ services:
       DO_NOT_REQUIRE_SSL: "1"
       DISABLE_BEACON: "1"
       RUST_LOG: ${RUST_LOG:-info}
-      # Fork workstream 3b.2 (provisioning localization): convex actions that
-      # provision per-app backends reach the chef-provisioner service through
-      # these (empty = hosted-plane behavior unchanged).
-      CHEF_PROVISION_URL: ${CHEF_PROVISION_URL:-}
-      CHEF_PROVISION_TOKEN: ${CHEF_PROVISION_TOKEN:-}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3210/version"]
       interval: 5s
@@ -125,119 +124,29 @@ services:
         condition: service_healthy
 
   # ------------------------------------------------------------------
-  # Chef — AI app builder (upstream get-convex/chef, cloned to
-  # services/chef by setup.sh). Builds full-stack web apps on the Atlas
-  # Convex backend. Model calls route through the shared OmniRoute on
-  # Zeus (Group 2) over the WireGuard mesh — Atlas runs no gateway of
-  # its own. Bring-up sequence and the Authentik auth fork live in
-  # docs/Deployment.md.
+  # Chef — RETIRED AS A BUILDER (build-plane convergence plan §2/§8).
+  #
+  # It used to be here as a `chef` profile (chef + chef-provisioner +
+  # chef-sites), building apps onto this stack's Convex backend. The plan
+  # settled on *one* builder — Olympus's engine (project_plan → runner →
+  # package-app/website → app-runtime) — because it is the only one of the
+  # three that ends with a running, named application. Two app-builder front
+  # doors were two ways to do one job, and Chef's output was bound to Convex.
+  #
+  # Nothing was deleted from the tree: `chef-provisioner/` and
+  # docs/chef-auth-fork.md stay as the record of that work (their headers say
+  # so). What changed is that Atlas no longer *runs* a builder, and the
+  # profile cannot be brought up from this file.
+  #
+  # What Atlas keeps from it is Convex. It stays a first-class deploy target
+  # for apps the builder produces — a realtime backend is a real product that
+  # the container runtime does not replace. Wiring it as a target the plan may
+  # pick lives in Studio (see the convergence doc §10.3 for the open question
+  # on when the Convex packaging path lands).
+  #
+  # Re-adding it is a decision, not an oversight: the services are in git
+  # history at the commit before this comment.
   # ------------------------------------------------------------------
-  chef:
-    container_name: atlas-chef
-    profiles: ["chef"]
-    build:
-      context: ./services/chef
-      dockerfile: Dockerfile
-      # Client-side envs are inlined by remix/vite at image build time, so the
-      # same defaults the runtime env lines use are passed through as build
-      # args (production serve, fork workstream 3b.3).
-      args:
-        VITE_CONVEX_URL: ${VITE_CONVEX_URL:-http://127.0.0.1:3210}
-        # Empty by default (fork §4): Chef must not leave the box for a core
-        # function. Hosted-plane dev sets these explicitly (escape hatch).
-        VITE_PROVISION_HOST: ${VITE_PROVISION_HOST:-}
-    restart: unless-stopped
-    ports:
-      # 4310 = Chef app port (remix-serve honors PORT; the auth fork moved off
-      # the Vite 5173 default) — avoids colliding with other dev servers.
-      - "${CHEF_PORT:-4310}:4310"
-    environment:
-      PORT: "${CHEF_PORT:-4310}"
-      VITE_CONVEX_URL: ${VITE_CONVEX_URL:-http://127.0.0.1:3210}
-      # Hosted control-plane endpoints — empty by default (fork §4): Chef must
-      # not leave the box for a core function. Set explicitly for hosted-plane
-      # dev (escape hatch); with CHEF_PROVISION_URL set, fork-mode code paths
-      # never call them.
-      VITE_PROVISION_HOST: ${VITE_PROVISION_HOST:-}
-      BIG_BRAIN_HOST: ${BIG_BRAIN_HOST:-}
-      CONVEX_SELF_HOSTED_URL: ${CONVEX_SELF_HOSTED_URL:-http://127.0.0.1:3210}
-      CONVEX_SELF_HOSTED_ADMIN_KEY: ${CONVEX_SELF_HOSTED_ADMIN_KEY:-}
-      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
-      XAI_API_KEY: ${XAI_API_KEY:-}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      # Chef Authentik auth fork (docs/chef-auth-fork.md, stage 3a) — empty by
-      # default so behavior is unchanged until the fork code lands. CHEF_OIDC_*
-      # keeps these separate from Gitea's OIDC_* (client `atlas-gitea`).
-      CHEF_OIDC_ISSUER_URL: ${CHEF_OIDC_ISSUER_URL:-}
-      CHEF_OIDC_CLIENT_ID: ${CHEF_OIDC_CLIENT_ID:-atlas-chef}
-      CHEF_OIDC_CLIENT_SECRET: ${CHEF_OIDC_CLIENT_SECRET:-}
-      CHEF_SESSION_SECRET: ${CHEF_SESSION_SECRET:-}
-      IDP_ADMIN_GROUP: ${IDP_ADMIN_GROUP:-atlas-admins}
-      # Fork workstream 3b.2: per-app backend provisioning (server routes)
-      # and static site deploys (deploy target). The URL is reachable from
-      # the chef container on the compose network.
-      CHEF_PROVISION_URL: ${CHEF_PROVISION_URL:-}
-      CHEF_PROVISION_TOKEN: ${CHEF_PROVISION_TOKEN:-}
-    depends_on:
-      convex:
-        condition: service_healthy
-
-  # ------------------------------------------------------------------
-  # Chef provisioner — per-app Convex backend lifecycle (fork workstream
-  # 3b.2, deployment-per-app). Owns the Docker socket on the chef profile
-  # and spawns one `convex-backend` container per generated app. See
-  # docs/chef-auth-fork.md §3b.2 and chef-provisioner/server.mjs.
-  # ------------------------------------------------------------------
-  chef-provisioner:
-    image: chef-provisioner:latest
-    profiles: ["chef"]
-    build:
-      context: ./chef-provisioner
-      dockerfile: Dockerfile
-    container_name: chef-provisioner
-    restart: unless-stopped
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      # Static site deploys for generated apps land here (extracted from the
-      # uploaded zips); shared with chef-sites for nginx to serve.
-      - ${CHEF_SITES_DIR:-./data/chef-sites}:/srv/sites
-    environment:
-      CHEF_PROVISION_TOKEN: ${CHEF_PROVISION_TOKEN:-}
-      CHEF_DOCKER_NETWORK: ${CHEF_DOCKER_NETWORK:-atlas_default}
-      CHEF_CONVEX_IMAGE: ghcr.io/get-convex/convex-backend:${CONVEX_VERSION:-latest}
-      CHEF_SITES_HOST: ${CHEF_SITES_HOST:-chef-sites:8080}
-    ports:
-      - "127.0.0.1:${CHEF_PROVISIONER_PORT:-9080}:9080"
-    # Site uploads (generated-app static builds) arrive on /sites/<slug>.
-    healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:9080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 5s
-
-  # ------------------------------------------------------------------
-  # Chef sites — static origin for generated apps (fork 3b.2/deploy
-  # target). One nginx worker serving every chef-proj-* volume through
-  # /srv/sites, with a per-project server block selected by the
-  # X-Chef-Project header (see chef-provisioner/nginx-sites.conf).
-  # ------------------------------------------------------------------
-  chef-sites:
-    image: nginx:alpine
-    profiles: ["chef"]
-    container_name: chef-sites
-    restart: unless-stopped
-    depends_on: [chef-provisioner]
-    environment:
-      # Substituted into the config template by nginx's docker-entrypoint.
-      CHEF_DEFAULT_SITE_SLUG: ${CHEF_DEFAULT_SITE_SLUG:-}
-    volumes:
-      - ${CHEF_SITES_DIR:-./data/chef-sites}:/srv/sites:ro
-      # nginx's docker-entrypoint envsubts *.template files into conf.d.
-      - ./chef-provisioner/nginx-sites.conf:/etc/nginx/templates/default.conf.template:ro
-    ports:
-      - "127.0.0.1:${CHEF_SITES_PORT:-8082}:8080"
 
 volumes:
   gitea-data:

@@ -31,11 +31,17 @@ jobs:
           test -f web/landing/index.html
           echo "structure: ok"
 
-      - name: Validate compose (default)
-        run: docker compose config --quiet
-
-      - name: Validate compose (chef profile)
-        run: docker compose --profile chef config --quiet
+      - name: Validate compose
+        run: |
+          docker compose config --quiet
+          # The `chef` profile is retired (convergence plan §2/§8): Atlas runs no
+          # builder. Assert it stays gone, so a stale service cannot reappear in
+          # a file whose whole point is that the stack has one builder.
+          if docker compose config --profile chef 2>/dev/null | grep -q 'atlas-chef'; then
+            echo "::error::the retired chef profile is back in docker-compose.yml"
+            exit 1
+          fi
+          echo "compose: ok"
 
       - name: Landing page sanity
         run: |
