@@ -20,6 +20,20 @@ foundation (stage 3a env plumbing) is in `docker-compose.yml` /
 - Chef's port is **4310** throughout this repo (was the common Vite dev
   default 5173); the fork must pin `server.port` in `vite.config.ts`, and the
   Dockerfile must `EXPOSE 4310` and honor `PORT`.
+- **Codegen routes through the one OmniRoute** (convergence §4.3). The OpenAI
+  case in `app/lib/.server/llm/provider.ts` now reads
+  `baseURL: getEnv('CHEF_OMNIROUTE_BASE_URL') || undefined`, so codegen goes to
+  the platform gateway (`CHEF_OMNIROUTE_BASE_URL` + `CHEF_OMNIROUTE_API_KEY`,
+  wired in `docker-compose.yml` and `.env.example`) and Atlas stores no vendor
+  key. Unset is upstream behavior, so a checkout with no gateway is unchanged.
+  The Anthropic/Google/XAI cases still build vendor SDK clients directly; a
+  shim per provider is the remaining half of this workstream.
+- **At least one placeholder provider key must stay in `.env.example`.** Chef's
+  build-time dependency check (`depscheck.mjs`, run by `npm run dev` — so it
+  runs in the image too) refuses to start when every provider key is missing,
+  whatever the gateway is set to. It is a build-system placeholder, not a live
+  credential: `.env.example` marks it as one and gives it the gateway key's
+  shape, and `docker-compose.yml` defaults it the same way.
 - **Authentik login flow (client + routes) landed** in the checkout:
   - `app/routes/api.auth.{start,callback,session,signout}.ts` — server-side
     Authorization Code + PKCE orchestration: `start` stashes verifier/state in
@@ -210,7 +224,7 @@ Cerulean Authentik  (auth.cerulean.innotel.us — IdentityOps)
    │  id_token: subject = Authentik user (openid profile email groups)
    ▼
 Chef session (httpOnly cookie, HMAC-signed — same pattern as the Zeus
-   portal lib/auth.ts; SESSION_SECRET from Infisical)
+   portal lib/auth.ts; SESSION_SECRET from Cerulean Vault)
    │
    ├─ Chef backend functions → Atlas Convex (self-hosted, local)
    │     account + project + deployment-token provisioning now live here
@@ -235,7 +249,7 @@ Non-negotiable outcomes:
 1. In Cerulean's Authentik, register the OAuth2/OIDC provider +
    application **`atlas-chef`** (redirect
    `https://chef.<zone>/api/auth/callback`, scopes
-   `openid profile email groups`) and issue client id/secret into Infisical.
+   `openid profile email groups`) and issue client id/secret into Cerulean Vault.
 2. Add the env plumbing the container will need (today the `chef` compose
    service passes only `VITE_*` model/convex vars):
    - `CHEF_OIDC_ISSUER_URL`, `CHEF_OIDC_CLIENT_ID=atlas-chef`,
@@ -324,7 +338,7 @@ repo's tree until the fork is baselined upstream.
    `dashboard/authorize`). Single shared instance (dev): the operator
    `make convex-key` key until scoped per-project keys exist.
 3. **Git push target.** **Recommendation: a Gitea machine token from
-   Infisical**, used by the provisioning service to create repos per app
+   Cerulean Vault**, used by the provisioning service to create repos per app
    via the Gitea API (idempotent by repo name). Keep the operator's
    Authentik identity out of Chef's push path.
 4. **Fallback switch.** Keep `VITE_PROVISION_HOST`/`BIG_BRAIN_HOST`

@@ -18,7 +18,7 @@ Stack.
 ## Setup
 
 ```bash
-./setup.sh              # installs guard hooks, clones upstream Chef, generates .env
+./setup.sh              # installs guard hooks, resolves secrets into .env, preflights
 make help               # see all targets
 ```
 
@@ -29,7 +29,7 @@ project owner in commit messages, PR text, and added file lines.
 
 ```bash
 make check-commits
-make check-compose      # default + gateway profiles (+ chef when services/chef exists)
+make check-compose      # validates the compose file
 ```
 
 Docs changes must keep the [docs/stack.md](docs/stack.md) owns/consumes

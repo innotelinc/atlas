@@ -9,7 +9,7 @@ go live); every value is env-driven.
 
 - Docker Engine with the Compose plugin, git, openssl, curl.
 - Platform services reachable: Cerulean (`auth.cerulean.innotel.us`) for
-  Authentik SSO + DNS/TLS + NPM Edge hosts, Infisical for secrets,
+  Authentik SSO + DNS/TLS + NPM Edge hosts, Cerulean Vault for secrets,
   Magnate (`magnate.innotel.us`) for paid developer-seat billing (optional).
 - For a dedicated Atlas host: a DNS pointer for `git.innotel.us` (CNAME to
   the apex) already provisioned through Cerulean.
@@ -22,8 +22,14 @@ cd atlas
 ./setup.sh        # guard hooks, .env with generated secrets, clones Chef
 ```
 
-Edit `.env`: hosts, `GITEA_DB_PASSWORD`, `CONVEX_INSTANCE_SECRET`, OIDC
-credentials, SMTP. Re-run anytime; it is idempotent.
+Edit `.env`: hosts, OIDC credentials, SMTP. Re-run anytime; it is idempotent.
+
+The secret keys are `vault://` references resolved by `setup.sh`: with
+`VAULT_ADDR` + `VAULT_TOKEN` (or `VAULT_TOKEN_FILE`) set, it seeds the keys Atlas
+generates (`scripts/vault-bootstrap.py`) and materializes every reference from
+Cerulean Vault; without them it generates the three local secrets so a dev box
+still comes up. `make vault-check` verifies the references resolve, `make
+vault-sync` re-materializes after a rotation.
 
 ## Stage 1 — Gitea + Convex (core)
 
@@ -78,7 +84,7 @@ make gateway-check   # verifies the mesh gateway is reachable
 ```
 
 If Zeus is down, Atlas model calls fail — start Group 2 first (`./stack.sh
-up 2` from the innotel-platform-stack repo).
+up 2` from the `ips` repo).
 
 > **Shared with Distro.** Distro runs its own OmniRoute gateway in its compose
 > stack (Group 5, Server 5) but points at the same upstream provider pool.
@@ -141,8 +147,11 @@ docker run -d --name atlas-runner --restart unless-stopped \
 - **Same-host coexistence:** other platforms bind port 3000 etc.; change
   `GITEA_HTTP_PORT`/`GITEA_SSH_PORT`/`CONVEX_*`/`CHEF_PORT` in `.env` and
   re-provision the NPM forwards — no code changes.
-- **Secrets:** `.env` is derived from Infisical; rotate provider keys in the
-  OmniRoute dashboard, never in code.
+- **Secrets:** `.env` is derived from Cerulean Vault (`vault://` references,
+  resolved by `setup.sh` / `make vault-sync`); rotate provider keys in the
+  OmniRoute dashboard, never in code. `make vault-bootstrap` seeds this stack's
+  generated secrets — it unions, so a re-run never rotates a credential a
+  running service is using.
 - **Billing (optional):** set `MAGNATE_URL` + `ENTITLEMENTS_API_TOKEN` (matching
   Magnate's `ENTITLEMENTS_API_TOKEN`) to gate paid developer seats. Magnate is
   Cerulean/Authentik-first — subscriber accounts live in Cerulean's Authentik.

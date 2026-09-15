@@ -69,7 +69,12 @@ single host or spreads across hosts behind the shared edge.
 
 All knobs live in `.env` (derived from `.env.example`; never committed).
 Domain, ports, versions, database credentials, and provider keys are all
-env-driven. Production secrets are pulled from Infisical at setup.
+env-driven. Production secrets are pulled from Cerulean Vault at setup
+(`vault://` references, resolved by `scripts/vault-resolve.py` — nothing in a
+running container can, and Compose cannot either — with
+`scripts/vault-bootstrap.py` seeding the keys Atlas generates). Infisical is the
+legacy store and this stack runs no part of it; `scripts/vault-migrate.py` is
+the migration path off it.
 
 ## Identity & trust boundaries
 

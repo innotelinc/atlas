@@ -1,18 +1,28 @@
 # Atlas — Integrations
 
-Atlas glues four open-source systems — Gitea, Chef, Convex (self-hosted),
-and OmniRoute — into one CodeOps platform and rides the Innotel platform
-services (Authentik, Infisical, Cerulean, Magnate, NPM Edge) for identity,
-secrets, trust, revenue, and edge.
+Atlas glues **Gitea** (repo hosting) and **Convex (self-hosted)** (app backend)
+into one CodeOps platform, with **OmniRoute** supplying the models, and rides the
+Innotel platform services (Authentik, Cerulean Vault, Cerulean, Magnate, NPM
+Edge) for identity, secrets, trust, revenue, and edge.
+
+**Chef is retired.** The bolt.diy-fork AI builder used to sit on top of this as
+Atlas's generation surface; in the convergence (Phase 3) the builder surface is
+**Studio** (Olympus), and a Studio plan targets either a container or the Convex
+backend Atlas runs. `chef-provisioner/` and
+[`docs/chef-auth-fork.md`](chef-auth-fork.md) are kept as the record — nothing
+builds or runs Chef.
 
 Upstreams:
 
 | Component | Upstream | License |
 | --- | --- | --- |
 | Gitea | https://github.com/go-gitea/gitea | MIT |
-| Chef | https://github.com/get-convex/chef | Apache-2.0 |
 | Convex backend (self-hosted) | https://github.com/get-convex/convex-backend | Apache-2.0 |
 | OmniRoute | https://github.com/diegosouzapw/OmniRoute | — |
+
+> Chef (`get-convex/chef`, Apache-2.0) was a fourth upstream until Phase 3. It is
+> no longer built, run, or pinned; its notice and the auth-fork notes stay in the
+> repo as the retirement record.
 
 ## Gitea — repo & development hosting
 
@@ -65,13 +75,22 @@ Upstreams:
   When generated apps go public, publish `convex` to the edge and set
   `CONVEX_CLOUD_ORIGIN`/`NEXT_PUBLIC_DEPLOYMENT_URL` to the HTTPS host.
 
-## Chef — AI app builder (on Atlas Convex)
+## Chef — retired builder (record only)
 
-Chef (a bolt.diy fork by the Convex team) is the "AI app builder that knows
-backend": it generates full-stack apps whose database, auth, files, realtime,
-and workflows run on Convex. Atlas builds it from source (cloned by
-`setup.sh` into `services/chef`, gitignored) and points it at the Atlas
-Convex backend.
+Chef (a bolt.diy fork by the Convex team) was the "AI app builder that knows
+backend": it generated full-stack apps whose database, auth, files, realtime,
+and workflows ran on Convex. **It was retired in Phase 3 of the convergence.**
+Nothing in this repo builds, runs, or pins it any more: the `chef` service, the
+`chef-provisioner` image wiring, the `chef-sites` volume and the compose profile
+are gone from `docker-compose.yml`, `setup.sh` no longer clones an upstream
+checkout, and CI no longer syntax-checks one. The builder surface is **Studio**
+(Olympus), pointed at the Distro control plane and able to target this Convex.
+
+What stays, deliberately: `docs/chef-auth-fork.md` (the auth-fork scope and
+workstreams, as the record of how it was built) and `chef-provisioner/`. The
+text below is the historical wiring, kept only so the record reads end-to-end.
+
+<details><summary>Historical Chef wiring (pre-Phase 3)</summary>
 
 Three wiring layers, in bring-up order:
 
@@ -92,9 +111,22 @@ Three wiring layers, in bring-up order:
    `convex/openaiProxy.ts` and `convex/summarize.ts`). Each SDK factory
    (`createOpenAI`, `createAnthropic`, …) accepts a `baseURL`; because
    OmniRoute is OpenAI-compatible, the single clean override is
-   `createOpenAI({ baseURL: OMNIROUTE_BASE_URL, apiKey: OMNIROUTE_API_KEY })`
-   for the OpenAI case and an OpenAI-compatible shim for the others. This
-   patch is intentionally small and documented in the fork commit.
+   `createOpenAI({ baseURL: CHEF_OMNIROUTE_BASE_URL, apiKey: … })` for the
+   OpenAI case and an OpenAI-compatible shim for the others. This patch is
+   intentionally small and documented in the fork commit.
+
+   **Landed** (in the gitignored `services/chef` checkout): the OpenAI case
+   reads `baseURL: getEnv('CHEF_OMNIROUTE_BASE_URL') || undefined`, so an
+   unset value is upstream behavior and a set one routes every OpenAI-model
+   turn through the gateway. `CHEF_OMNIROUTE_BASE_URL` / `_API_KEY` are wired
+   into the `chef` service and `.env.example`. Two things the patch does not
+   do, both deliberate: the Anthropic/Google/XAI cases still build their own
+   SDK clients against the vendor (an OpenAI-compatible shim for each is the
+   next step, and until then a `claude-*`/`gemini-*` choice reaches the
+   vendor directly), and Chef's build-time dependency check
+   (`depscheck.mjs`) still refuses to start with **no** provider key at all —
+   see `docs/chef-auth-fork.md` for why `.env.example` keeps exactly one
+   placeholder and marks it as such.
 
 3. **Auth fork → Authentik.** Upstream Chef authenticates through Convex's
    hosted control plane (OAuth against `api.convex.dev` — also the default of
@@ -113,30 +145,40 @@ Three wiring layers, in bring-up order:
    self-hosted Convex, deploy tokens, git push path) live in
    [docs/chef-auth-fork.md](chef-auth-fork.md).
 
-## OmniRoute — the provider for Chef
+</details>
+
+## OmniRoute — the shared model provider
 
 - **Shared gateway on Zeus (Group 2 of the mesh, `10.10.2.1:20128`).**
   Atlas runs no OmniRoute of its own; connect provider accounts once in
   the Zeus OmniRoute dashboard.
-- Chef's codegen agent points at
+- Consumers point at
   `OMNIROUTE_BASE_URL=http://10.10.2.1:20128/v1` with
   `OMNIROUTE_API_KEY`, so Atlas never stores vendor keys — one pool, many
   providers, single point of rotation. Requires the WireGuard mesh to be
-  up (see innotel-platform-stack).
+  up (see `ips`).
 
 ## Authentik — identity (IdentityOps)
 
 - Cerulean hosts the shared Authentik; every Atlas login goes through it
   (`auth.cerulean.innotel.us`, aliased `auth.atlas.innotel.us`).
-- Registered applications: `atlas-gitea` (Gitea OAuth2) and `atlas-chef`
-  (Chef OAuth, after the auth fork). Groups: `atlas-admins` gates admin in
-  both.
+- Registered application: `atlas-gitea` (Gitea OAuth2). Groups: `atlas-admins`
+  gates admin. The `atlas-chef` application was **deleted from Authentik** along
+  with Chef's retirement (Phase 3), so no orphan provider remains.
 
-## Infisical · Cerulean · Magnate · NPM Edge
+## Cerulean Vault · Cerulean · Magnate · NPM Edge
 
-- **Infisical (SecretOps):** Atlas `.env` is derived — `setup.sh` pulls
-  credentials from the `atlas` project, and generated secrets are written
-  back; `.env` and `services/` never enter git.
+- **Cerulean Vault (SecretOps):** Atlas `.env` derives from Vault. Database
+  passwords, the Convex instance secret and the OAuth session secret are
+  `vault://cerulean/atlas#<KEY>` references in `.env.example`; `setup.sh` runs
+  `scripts/vault-bootstrap.py` (which seeds the keys Atlas generates) and then
+  `scripts/vault-resolve.py --write`, because Atlas is compose-and-images only
+  and nothing in a running container can resolve a reference. A reference that
+  does not resolve stops the setup — never an empty credential. The
+  Authentik-issued client secrets are stored from what Authentik printed, with
+  `scripts/vault-migrate.py`; it is also the migration path off Infisical, the
+  legacy store (`docs/stack.md` § Secrets). `.env` and `services/` never enter
+  git.
 - **Cerulean (TrustOps):** DNS records + per-zone wildcard TLS for
   `git.innotel.us`, `chef.innotel.us`, `convex.innotel.us`; CNAMEs to the
   apex, DNS-01 issuance via the shared BIND TSIG key.
@@ -146,19 +188,27 @@ Three wiring layers, in bring-up order:
   `127.0.0.1` ports of this stack (see `scripts/npm-proxy-hosts.py` pattern
   in sibling platforms / docs/Deployment.md).
 
-## Distro ↔ Atlas (BuilderOps ↔ CodeOps)
+## Studio ↔ Distro ↔ Atlas (Builder ↔ Tenancy ↔ CodeOps)
 
-Distro builds apps live in the browser; Atlas is the stack's CodeOps home
-(Gitea repos + Chef AI app builder on self-hosted Convex). The shared workflow:
+**Studio (Olympus)** is the builder: it generates a project from a plan and
+packages it. **Distro** is the tenancy service — accounts, per-user gateway
+keys, quota and audit for that builder. **Atlas** is CodeOps: Gitea repos plus a
+self-hosted Convex backend. The shared workflow:
 
-1. Describe an app in Distro → AI writes code in-browser (WebContainer).
-2. Export to Git → Distro pushes the project to an Atlas/Gitea remote
-   (`ATLAS_URL` + `ATLAS_GIT_REMOTE` in Distro's `.env`).
-3. Atlas receives the source; Chef can scaffold a Convex backend for it.
-4. Gitea + Gitea Actions CI/CD build and ship it.
+1. Describe an app in Studio; the plan carries a **target**
+   (`lib/targets.ts`) — `container` by default, or `convex` when it should run
+   on the Convex backend Atlas hosts.
+2. Studio asks Distro's control plane for a per-user gateway key, quota and an
+   audit record (`CONTROL_PLANE_INTERNAL_URL` + `CONTROL_INTERNAL_TOKEN`).
+3. The packaged project goes to an Atlas/Gitea remote and Gitea Actions builds
+   and ships it.
 
-Both platforms consume the same Magnate instance for billing (RevenueOps) and
-the same Cerulean Authentik for identity / DNS / TLS (TrustOps). Atlas does not
-run its own OmniRoute gateway — Chef reaches the shared Zeus gateway over the
-WireGuard mesh; Distro runs its own gateway in its compose stack but points at
-the same upstream provider pool.
+> The bolt.diy front door that used to live in Distro (`apps/web`, an in-browser
+> WebContainer builder) was **retired** in Phase 3 — Studio is the one web UI, and
+> Distro keeps only the control plane. Distro's bundled gateway went with it: the
+> platform runs **one** OmniRoute, on Zeus, over the mesh.
+
+Both consume the same Magnate instance for billing (RevenueOps) and the same
+Cerulean Authentik for identity / DNS / TLS (TrustOps). Atlas runs no OmniRoute
+of its own; Studio and the other consumers reach the shared Zeus gateway over
+the WireGuard mesh.

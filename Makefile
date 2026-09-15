@@ -7,7 +7,8 @@
 SHELL := /bin/bash
 
 .PHONY: help setup up down logs ps \
-        gateway-check chef-up chef-down \
+        gateway-check \
+        vault-bootstrap vault-sync vault-check \
         convex-key check-commits check-compose
 
 help: ## Show this help message
@@ -17,7 +18,7 @@ help: ## Show this help message
 
 ## ---- Bootstrap ------------------------------------------------------------
 
-setup: ## Preflight, install guard hooks, clone upstream Chef, generate .env
+setup: ## Preflight, install guard hooks, resolve secrets into .env
 	bash scripts/setup.sh
 
 ## ---- Core platform (Gitea + Convex + dashboard) --------------------------
@@ -41,11 +42,21 @@ gateway-check: ## Verify the shared OmniRoute on Zeus (mesh) is reachable
 	@curl -sf --max-time 5 "$$(grep OMNIROUTE_BASE_URL .env | cut -d= -f2)/models" >/dev/null \
 	  && echo "OmniRoute reachable" || echo "OmniRoute NOT reachable — start Zeus Group 2"
 
-chef-up: ## Build + start Chef (AI app builder; requires services/chef from setup)
-	docker compose --profile chef up -d --build
+## Chef is retired as a builder (convergence plan §2/§8): the `chef` profile,
+## its provisioner, and the `chef-up`/`chef-down` targets are gone. Atlas keeps
+## Convex, which stays a deploy target for apps the builder produces; the record
+## of the Chef work lives in chef-provisioner/ and docs/chef-auth-fork.md.
 
-chef-down: ## Stop Chef
-	docker compose --profile chef down
+## ---- Secrets (Cerulean Vault) ---------------------------------------------
+
+vault-bootstrap: ## Seed this stack's generated secrets in Cerulean Vault (unions; never rotates)
+	python3 scripts/vault-bootstrap.py
+
+vault-sync: ## Materialize the .env vault:// references from Cerulean Vault
+	python3 scripts/vault-resolve.py --file .env --write
+
+vault-check: ## Verify every .env vault:// reference resolves (writes nothing)
+	python3 scripts/vault-resolve.py --file .env --check
 
 ## ---- Operations -----------------------------------------------------------
 
@@ -57,6 +68,5 @@ convex-key: ## Generate a fresh Convex admin key from the running backend
 check-commits: ## Reject generated attribution text in reachable commit messages
 	bash scripts/check-commit-messages.sh
 
-check-compose: ## Validate every compose profile parses
+check-compose: ## Validate the compose file parses
 	docker compose config --quiet
-	@if [ -d services/chef ]; then docker compose --profile chef config --quiet; fi
