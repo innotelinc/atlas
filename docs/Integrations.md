@@ -115,7 +115,8 @@ Three wiring layers, in bring-up order:
    OpenAI case and an OpenAI-compatible shim for the others. This patch is
    intentionally small and documented in the fork commit.
 
-   **Landed** (in the gitignored `services/chef` checkout): the OpenAI case
+   **Landed** (in the gitignored `services/chef` checkout, pushed to the
+   [`innotelinc/chef`](https://github.com/innotelinc/chef) fork): the OpenAI case
    reads `baseURL: getEnv('CHEF_OMNIROUTE_BASE_URL') || undefined`, so an
    unset value is upstream behavior and a set one routes every OpenAI-model
    turn through the gateway. `CHEF_OMNIROUTE_BASE_URL` / `_API_KEY` are wired
