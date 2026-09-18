@@ -149,14 +149,18 @@ Three wiring layers, in bring-up order:
 
 ## OmniRoute — the shared model provider
 
-- **Shared gateway on Zeus (Group 2 of the mesh, `10.10.2.1:20128`).**
+- **Shared gateway (Group 2 of the mesh, `2-voice/`, on the gateway host
+  `192.168.1.46`).**
   Atlas runs no OmniRoute of its own; connect provider accounts once in
-  the Zeus OmniRoute dashboard.
+  that gateway's dashboard, reached through its SSO proxy at
+  `http://192.168.1.46:20129`.
 - Consumers point at
-  `OMNIROUTE_BASE_URL=http://10.10.2.1:20128/v1` with
+  `OMNIROUTE_BASE_URL=http://192.168.1.46:20129/v1` with
   `OMNIROUTE_API_KEY`, so Atlas never stores vendor keys — one pool, many
-  providers, single point of rotation. Requires the WireGuard mesh to be
-  up (see `ips`).
+  providers, single point of rotation. The proxy exempts `/v1` for API
+  clients; the gateway's own `:20128` is not routable off its host.
+  Requires the WireGuard mesh, or plain LAN reach of that host, to be up
+  (see `ips`).
 
 ## Authentik — identity (IdentityOps)
 

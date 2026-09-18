@@ -70,12 +70,14 @@ for Gitea go through the same proxy (NPM `websocket_support: true`).
 
 ## Stage 3 — OmniRoute (model gateway)
 
-OmniRoute is the **single** model gateway in the platform and runs on Zeus
-(Group 2 of the mesh, `10.10.2.1:20128`). Atlas does **not** run its own
-instance — Chef reaches the shared gateway over the WireGuard mesh:
+OmniRoute is the **single** model gateway in the platform (Group 2 of the mesh —
+`2-voice/`, on the Cerulean/trust host `192.168.1.46`). Atlas does **not** run its
+own instance. The gateway's own port is not a routable target — Cerulean SSO is
+its only gate, so `:20128` answers on that host's loopback and bridge alone — and
+Chef therefore dials the proxy in front of it:
 
 ```env
-OMNIROUTE_BASE_URL=http://10.10.2.1:20128/v1
+OMNIROUTE_BASE_URL=http://192.168.1.46:20129/v1
 OMNIROUTE_API_KEY=<key created in the Zeus OmniRoute dashboard>
 ```
 
