@@ -2,13 +2,21 @@
 
 **Status: in progress — Authentik login flow landed and E2E-verified; codegen deployed to Atlas Convex; production serve (3b.3) landed and verified (2026-09-06/07). Provisioning localization (3b.2) is functionally complete (2026-09-07): deployment-per-app infrastructure (`chef-provisioner`), env-gated convex adapter, fork-mode UI trigger + teams sweep, and the **deploy-target pointer** (per-project static origin: provisioner `/sites` + `chef-sites` nginx; deploy-simple branches on `CHEF_PROVISION_URL`) — all verified live and typechecked. Remaining: 3c in-browser verification (login round-trip + egress proof) once the running deployment is flipped to fork mode.** · September 2026
 
-Upstream is cloned at `services/chef` (gitignored) and **pinned to
-`d8a6cb6`** (`Add 'us' to new anthropic models (#980)`). The repo-side
+Upstream is cloned at `services/chef` (gitignored) and **forked to
+[`innotelinc/chef`](https://github.com/innotelinc/chef)** — the checkout's
+`origin` is the fork and `upstream` is `get-convex/chef`, which is the same
+shape the rest of the estate uses for a third-party vendor
+(`innotelinc/Archon`, `innotelinc/dograh`). The upstream base is **`d8a6cb6`**
+(`Add 'us' to new anthropic models (#980)`), and every fork commit below is
+pushed to the fork's `main`, so the fork work is no longer held by one host's
+gitignored working copy. Fetch the upstream base with `git fetch upstream`,
+and see what is ours with `git log --oneline upstream/main..main`. The repo-side
 foundation (stage 3a env plumbing) is in `docker-compose.yml` /
 `.env.example`; the fork code itself lives in the `services/chef` checkout
 (stages 3b–3c below).
 
-**Landed so far** (in the gitignored `services/chef` checkout):
+**Landed so far** (in the gitignored `services/chef` checkout, pushed to
+`innotelinc/chef`):
 
 - `app/lib/.server/authentik.ts` — server-side OIDC client (discovery, PKCE,
   code exchange, RS256 id_token verification against the provider JWKS, zero
