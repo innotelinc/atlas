@@ -77,7 +77,7 @@ its only gate, so `:20128` answers on that host's loopback and bridge alone — 
 Chef therefore dials the proxy in front of it:
 
 ```env
-OMNIROUTE_BASE_URL=http://192.168.1.46:20129/v1
+OMNIROUTE_BASE_URL=http://192.168.1.46:20128/v1
 OMNIROUTE_API_KEY=<key created in the Zeus OmniRoute dashboard>
 ```
 
