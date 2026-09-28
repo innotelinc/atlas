@@ -154,9 +154,9 @@ Three wiring layers, in bring-up order:
   `192.168.1.46`).**
   Atlas runs no OmniRoute of its own; connect provider accounts once in
   that gateway's dashboard, reached through its SSO proxy at
-  `http://192.168.1.46:20128`.
+  `http://192.168.1.71:20128`.
 - Consumers point at
-  `OMNIROUTE_BASE_URL=http://192.168.1.46:20128/v1` with
+  `OMNIROUTE_BASE_URL=http://192.168.1.71:20128/v1` with
   `OMNIROUTE_API_KEY`, so Atlas never stores vendor keys — one pool, many
   providers, single point of rotation. The proxy exempts `/v1` for API
   clients; the gateway's own `:20128` is not routable off its host.

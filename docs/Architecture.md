@@ -60,7 +60,7 @@ single host or spreads across hosts behind the shared edge.
 
 ### Model gateway (OmniRoute)
 
-- One endpoint (`http://192.168.1.46:20128/v1` — the SSO proxy in front of
+- One endpoint (`http://192.168.1.71:20128/v1` — the SSO proxy in front of
   the shared OmniRoute, Group 2 of the mesh; the gateway's own `:20128`
   answers on its host's loopback and bridge alone), one credential pool. Chef's provider keys
   point at OmniRoute instead of vendor endpoints, so provider accounts
