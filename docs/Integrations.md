@@ -151,7 +151,7 @@ Three wiring layers, in bring-up order:
 ## OmniRoute — the shared model provider
 
 - **Shared gateway (Group 2 of the mesh, `2-voice/`, on the gateway host
-  `192.168.1.46`).**
+  `192.168.1.71`).**
   Atlas runs no OmniRoute of its own; connect provider accounts once in
   that gateway's dashboard, reached through its SSO proxy at
   `http://192.168.1.71:20128`.

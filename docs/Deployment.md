@@ -71,7 +71,7 @@ for Gitea go through the same proxy (NPM `websocket_support: true`).
 ## Stage 3 — OmniRoute (model gateway)
 
 OmniRoute is the **single** model gateway in the platform (Group 2 of the mesh —
-`2-voice/`, on the Cerulean/trust host `192.168.1.46`). Atlas does **not** run its
+`2-voice/`, on the Cerulean/trust host `192.168.1.71`). Atlas does **not** run its
 own instance. The gateway's own port is not a routable target — Cerulean SSO is
 its only gate, so `:20128` answers on that host's loopback and bridge alone — and
 Chef therefore dials the proxy in front of it:

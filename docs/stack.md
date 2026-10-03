@@ -83,6 +83,26 @@ that starts with an empty credential fails later as an authentication error
 that names the wrong service. Without `VAULT_ADDR`, setup generates local values
 for the three keys Atlas owns and says so, so a dev box still comes up.
 
+### Migrated 2026-10-01
+
+`cerulean/atlas` now owns six keys, and `.env.example` declares all six as
+`vault://` references (`.env` stays the derived, materialized file):
+
+| Key | Minted by |
+| --- | --- |
+| `GITEA_DB_PASSWORD` | `scripts/vault-bootstrap.py` |
+| `CONVEX_INSTANCE_SECRET` | `scripts/vault-bootstrap.py` |
+| `OIDC_CLIENT_SECRET` | issued by Cerulean Authentik |
+| `CONVEX_SELF_HOSTED_ADMIN_KEY` | migrated from `.env` |
+| `OMNIROUTE_API_KEY` | migrated from `.env` |
+| `CERULEAN_ADMIN_PASSWORD` | migrated from `.env` |
+
+Verified on the `atlas` container (i2): `vault-resolve.py --check` reports all
+six resolve, `--write` materializes them, and `git.innotel.us` (Gitea) plus the
+Convex backend stay healthy. The retired `CHEF_*` keys and the provider
+placeholder `OPENAI_API_KEY` still present in the live `.env` are undeclared
+leftovers from the removed Chef profile — no compose service reads them.
+
 The path-scoped policy is `atlas` over `cerulean/atlas*` — never the
 platform-wide `cerulean` policy or the root token. The token is delivered as
 `data/vault/token/atlas.token` and read through `VAULT_TOKEN_FILE`.
