@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Atlas — Your Coding &amp; Development Platform</title>
-  <meta name="description" content="Atlas is the self-hosted coding and development platform: Gitea repo hosting, the Chef AI app builder on self-hosted Convex, and one OmniRoute gateway for every model.">
+  <meta name="description" content="Atlas is the self-hosted coding and development platform: Gitea repo hosting, the Genie agent that builds and publishes into it, a self-hosted Convex backend, and one OmniRoute gateway for every model.">
   <meta property="og:title" content="Atlas — Build What's Next.">
-  <meta property="og:description" content="Self-hosted dev platform: Gitea forges, Chef AI app building on Convex, OmniRoute model gateway. One login through the Innotel stack.">
+  <meta property="og:description" content="Self-hosted dev platform: Gitea forges, the Genie agent building into them, self-hosted Convex, OmniRoute model gateway. One login through the Innotel stack.">
   <meta property="og:type" content="website">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230a0e13'/%3E%3Ccircle cx='32' cy='32' r='15' fill='none' stroke='%2322d3ee' stroke-width='3'/%3E%3Cellipse cx='32' cy='32' rx='7' ry='15' fill='none' stroke='%2322d3ee' stroke-width='3'/%3E%3Cline x1='17' y1='32' x2='47' y2='32' stroke='%2322d3ee' stroke-width='3'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="unity-theme.css">
@@ -141,7 +141,7 @@
   <div class="wrap hero-inner">
     <p class="kicker"><span class="pulse"></span> CodeOps — self-hosted dev platform</p>
     <h1>Build what's <span class="accent">next</span> — describe it, review it, ship it.</h1>
-    <p class="lede">Atlas is your coding &amp; development platform: every repository in your own Gitea forge, an AI app builder (Chef) that scaffolds full-stack apps on a self-hosted Convex backend, and one OmniRoute gateway in front of every model.</p>
+    <p class="lede">Atlas is your coding &amp; development platform: every repository in your own Gitea forge, the Genie agent that builds a project and publishes it here, a self-hosted Convex backend for the apps that need one, and one OmniRoute gateway in front of every model.</p>
     <div class="cta-row">
       <a class="btn btn-primary" href="https://github.com/innotelinc/atlas" target="_blank" rel="noopener">View on GitHub</a>
       <a class="btn btn-secondary" href="https://github.com/innotelinc/atlas/blob/main/README.md" target="_blank" rel="noopener">Quick start</a>
@@ -152,7 +152,7 @@
     </div>
     <div class="stats">
       <div class="stat"><div class="n"><em>1</em> forge</div><div class="l">Gitea — repos · PRs · CI</div></div>
-      <div class="stat"><div class="n"><em>1</em> builder</div><div class="l">Chef — AI app building</div></div>
+      <div class="stat"><div class="n"><em>1</em> builder</div><div class="l">Genie — builds &amp; publishes</div></div>
       <div class="stat"><div class="n"><em>1</em> gateway</div><div class="l">OmniRoute — all models</div></div>
       <div class="stat"><div class="n"><em>∞</em> apps</div><div class="l">on self-hosted Convex</div></div>
     </div>
@@ -170,21 +170,21 @@
         <span class="role">Code hosting</span>
       </div>
       <div class="card">
-        <div class="ico">👨‍🍳</div>
-        <h3>Chef — AI app builder</h3>
-        <p>Describe an app and Chef generates the full stack — database schema, zero-config auth, file uploads, realtime UIs, background workflows — on the Convex backend it knows best.</p>
-        <span class="role">AI codegen</span>
+        <div class="ico">🧞</div>
+        <h3>Genie — the builder</h3>
+        <p>Describe an app and Genie writes it in its own workspace, previews it running, and publishes the repository into this forge — then keeps working in the same directory. It is the stack's one builder, and a deployment of its own.</p>
+        <span class="role">Builder</span>
       </div>
       <div class="card">
         <div class="ico">⚡</div>
         <h3>Convex — self-hosted backend</h3>
-        <p>The open-source reactive database and compute engine behind Chef's generated apps. SQLite on a named volume to start; Postgres/S3-ready for production. Dashboard included.</p>
+        <p>The open-source reactive database and compute engine behind the apps Genie publishes. SQLite on a named volume to start; Postgres/S3-ready for production. Dashboard included.</p>
         <span class="role">App runtime</span>
       </div>
       <div class="card">
         <div class="ico">🛰️</div>
         <h3>OmniRoute — model gateway</h3>
-        <p>One OpenAI-compatible endpoint pools every provider account. Chef's codegen routes through it, so Atlas never stores vendor keys — rotate providers in one dashboard.</p>
+        <p>One OpenAI-compatible endpoint pools every provider account. Genie's turns route through it, so Atlas never stores vendor keys — rotate providers in one dashboard.</p>
         <span class="role">Models</span>
       </div>
     </div>
@@ -196,10 +196,10 @@
     <div class="sec-head"><h2>How an app is born in Atlas</h2><p>Prompt → code → your forge → your runtime.</p></div>
     <div class="flow">
       <span class="chip">💬 You describe an app</span><span class="arr">→</span>
-      <span class="chip">👨‍🍳 Chef generates it</span><span class="arr">→</span>
+      <span class="chip">🧞 Genie writes &amp; previews it</span><span class="arr">→</span>
       <span class="chip">🛰️ models via OmniRoute</span><span class="arr">→</span>
+      <span class="chip">🔱 published to Gitea</span><span class="arr">→</span>
       <span class="chip">⚡ deployed to Convex</span><span class="arr">→</span>
-      <span class="chip">🔱 source lands in Gitea</span><span class="arr">→</span>
       <span class="chip">🚀 Actions CI ships it</span>
       <div class="foot">Identity at every step comes from Cerulean's Authentik; secrets from Cerulean Vault; DNS + TLS from Cerulean. Built apps deploy to their owning platform — Atlas holds the source.</div>
     </div>
@@ -219,7 +219,6 @@
       <div class="card"><h3>Profiles (opt-in)</h3>
         <div class="chips" style="margin-top:10px">
           <span>OmniRoute gateway</span>
-          <span>Chef (built from source)</span>
           <span>act_runner for Actions</span>
         </div>
       </div>
@@ -236,7 +235,8 @@
       <tbody>
         <tr><td>docs/stack.md</td><td>Atlas's CodeOps role in the Innotel Platform Stack — owns / consumes boundaries</td></tr>
         <tr><td>docs/Architecture.md</td><td>Components, data flows, network and identity boundaries</td></tr>
-        <tr><td>docs/Integrations.md</td><td>Gitea, Chef, Convex self-hosted, OmniRoute, Authentik wiring</td></tr>
+        <tr><td>docs/genie.md</td><td>Genie's connection to the forge — env contract, credentials, verification</td></tr>
+        <tr><td>docs/Integrations.md</td><td>Gitea, Genie, Convex self-hosted, OmniRoute, Authentik wiring</td></tr>
         <tr><td>docs/Deployment.md</td><td>Bring-up runbook — Cerulean DNS/TLS, edge, production notes</td></tr>
       </tbody>
     </table>
