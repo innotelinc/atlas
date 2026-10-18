@@ -75,7 +75,7 @@ services:
   # ------------------------------------------------------------------
   # Convex backend — self-hosted reactive database & compute, and a deploy
   # target for apps the builder produces (convergence §2: Atlas keeps CodeOps,
-  # and Convex with it, while the *building* happens in Olympus). SQLite
+  # and Convex with it, while the *building* happens in Genie). SQLite
   # storage on a named volume by default.
   # The edge (NPM, on this host) fronts `convex.innotel.us` and Cerulean
   # attaches TLS; the ports are published on the host's own addresses rather
@@ -132,10 +132,10 @@ services:
   #
   # It used to be here as a `chef` profile (chef + chef-provisioner +
   # chef-sites), building apps onto this stack's Convex backend. The plan
-  # settled on *one* builder — Olympus's engine (project_plan → runner →
-  # package-app/website → app-runtime) — because it is the only one of the
-  # three that ends with a running, named application. Two app-builder front
-  # doors were two ways to do one job, and Chef's output was bound to Convex.
+  # settled on *one* builder — Genie (agent workspace → publish → repository
+  # here), because it is the one that ends with a running project and a
+  # repository. Two app-builder front doors were two ways to do one job, and
+  # Chef's output was bound to Convex.
   #
   # Nothing was deleted from the tree: `chef-provisioner/` and
   # docs/chef-auth-fork.md stay as the record of that work (their headers say

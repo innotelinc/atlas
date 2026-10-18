@@ -6,9 +6,10 @@ Innotel platform services (Authentik, Cerulean Vault, Cerulean, Magnate, NPM
 Edge) for identity, secrets, trust, revenue, and edge.
 
 **Chef is retired.** The bolt.diy-fork AI builder used to sit on top of this as
-Atlas's generation surface; in the convergence (Phase 3) the builder surface is
-**Studio** (Olympus), and a Studio plan targets either a container or the Convex
-backend Atlas runs. `chef-provisioner/` and
+Atlas's generation surface; in the convergence (Phase 3) that surface moved out
+of Atlas entirely and is now **Genie** ([genie.innotel.us](https://genie.innotel.us)),
+which publishes its projects into this Gitea and may target the Convex backend
+Atlas runs. `chef-provisioner/` and
 [`docs/chef-auth-fork.md`](chef-auth-fork.md) are kept as the record — nothing
 builds or runs Chef.
 
@@ -83,8 +84,9 @@ and workflows ran on Convex. **It was retired in Phase 3 of the convergence.**
 Nothing in this repo builds, runs, or pins it any more: the `chef` service, the
 `chef-provisioner` image wiring, the `chef-sites` volume and the compose profile
 are gone from `docker-compose.yml`, `setup.sh` no longer clones an upstream
-checkout, and CI no longer syntax-checks one. The builder surface is **Studio**
-(Olympus), pointed at the Distro control plane and able to target this Convex.
+checkout, and CI no longer syntax-checks one. The builder surface is **Genie**
+([genie.innotel.us](https://genie.innotel.us)), pointed at the Distro control
+plane and able to target this Convex.
 
 What stays, deliberately: `docs/chef-auth-fork.md` (the auth-fork scope and
 workstreams, as the record of how it was built) and `chef-provisioner/`. The
@@ -193,27 +195,39 @@ Three wiring layers, in bring-up order:
   `127.0.0.1` ports of this stack (see `scripts/npm-proxy-hosts.py` pattern
   in sibling platforms / docs/Deployment.md).
 
-## Studio ↔ Distro ↔ Atlas (Builder ↔ Tenancy ↔ CodeOps)
+## Genie ↔ Atlas (Builder ↔ CodeOps)
 
-**Studio (Olympus)** is the builder: it generates a project from a plan and
-packages it. **Distro** is the tenancy service — accounts, per-user gateway
-keys, quota and audit for that builder. **Atlas** is CodeOps: Gitea repos plus a
-self-hosted Convex backend. The shared workflow:
+**Genie** ([genie.innotel.us](https://genie.innotel.us)) is the builder: an agent
+workspace — the console and the `genie` CLI — that writes a project in a
+sandbox, previews it running, and publishes it into a forge. **Atlas** is
+CodeOps: Gitea repos plus a self-hosted Convex backend. The shared workflow:
 
-1. Describe an app in Studio; the plan carries a **target**
-   (`lib/targets.ts`) — `container` by default, or `convex` when it should run
-   on the Convex backend Atlas hosts.
-2. Studio asks Distro's control plane for a per-user gateway key, quota and an
-   audit record (`CONTROL_PLANE_INTERNAL_URL` + `CONTROL_INTERNAL_TOKEN`).
-3. The packaged project goes to an Atlas/Gitea remote and Gitea Actions builds
-   and ships it.
+1. A project is built in Genie's workspace. Models come from the one OmniRoute
+   on Zeus; with Distro's control plane configured, each turn is attributed to
+   an account, gated on its quota and spent on that account's own gateway key
+   (`CONTROL_PLANE_INTERNAL_URL` + `CONTROL_INTERNAL_TOKEN`).
+2. **Publish** creates (or reuses) the repository through Gitea's API, commits,
+   pushes once with the credential inline, and leaves `origin` pointing at it —
+   so the work carries on in the same directory, and a repository that already
+   exists simply receives the next push.
+3. An app whose data target is Convex deploys onto the backend this stack hosts;
+   everything else keeps its source, reviews and CI here.
+
+Genie reaches Atlas through four values in *its* `.env` — `AGENT_ATLAS_URL` (the
+address Gitea is published on), `AGENT_ATLAS_SSH_HOST` (the same machine, for
+working in a *folder* over SSH), and `AGENT_ATLAS_USER` / `AGENT_ATLAS_PASSWORD`
+(the deployment's own credential, not gated on a plan). `MAGNATE_ATLAS_PLAN`
+(default `atlas`) is the plan that entitles a caller who has no deployment
+credential of their own. The full contract — including how to mint the access
+token and verify the pair — is [docs/genie.md](genie.md).
 
 > The bolt.diy front door that used to live in Distro (`apps/web`, an in-browser
-> WebContainer builder) was **retired** in Phase 3 — Studio is the one web UI, and
-> Distro keeps only the control plane. Distro's bundled gateway went with it: the
-> platform runs **one** OmniRoute, on Zeus, over the mesh.
+> WebContainer builder) was **retired** in Phase 3, and the Studio surface that
+> followed it is superseded by **Genie** — one builder, one web UI. Distro keeps
+> only the control plane. Distro's bundled gateway went with it: the platform
+> runs **one** OmniRoute, on Zeus, over the mesh.
 
-Both consume the same Magnate instance for billing (RevenueOps) and the same
-Cerulean Authentik for identity / DNS / TLS (TrustOps). Atlas runs no OmniRoute
-of its own; Studio and the other consumers reach the shared Zeus gateway over
-the WireGuard mesh.
+Genie and Distro consume the same Magnate instance for billing (RevenueOps) and
+the same Cerulean Authentik for identity / DNS / TLS (TrustOps). Atlas runs no
+OmniRoute of its own; Genie and the other consumers reach the shared Zeus
+gateway over the WireGuard mesh.

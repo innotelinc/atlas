@@ -96,7 +96,7 @@ fi
 # ---- 5. Checklist ----------------------------------------------------------
 # There is no upstream checkout any more: the `chef` profile used to clone
 # get-convex/chef into services/chef at this step, and Chef is retired as a
-# builder (convergence plan §2/§8 — one builder, and it is Olympus's engine).
+# builder (convergence plan §2/§8 — one builder, and it is Genie).
 # A checkout that still has services/chef is left untouched and unused.
 if [ -d services/chef ]; then
   warn "services/chef is present from the retired Chef profile — nothing reads it"

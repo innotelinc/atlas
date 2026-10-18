@@ -20,8 +20,8 @@ from the Innotel Platform Stack behind you.
 
 > **About Atlas** — source control, code review, CI/CD, and the runtime
 > backend for the whole platform: **Gitea** hosts every repository,
-> **self-hosted Convex** is a deploy target for the apps Olympus's builder
-> produces, and **OmniRoute** is the single model provider they share.
+> **self-hosted Convex** is a deploy target for the apps **Genie** publishes,
+> and **OmniRoute** is the single model provider they share.
 > **Landing page:** [innotelinc.github.io/atlas](https://innotelinc.github.io/atlas)
 
 ---
@@ -31,7 +31,7 @@ from the Innotel Platform Stack behind you.
 | Problem | Atlas answer |
 | --- | --- |
 | Repos scattered across SaaS forges | Self-hosted **Gitea** — repos, PRs, issues, wiki, packages, Actions CI |
-| App scaffolding is manual | The ecosystem's builder (Olympus's Studio + factory) turns a prompt into a running app; Atlas keeps the source and CI for it |
+| App scaffolding is manual | The ecosystem's builder — **Genie** ([genie.innotel.us](https://genie.innotel.us)) — turns a prompt into a running project and publishes it here; Atlas keeps the source and CI for it |
 | App runtimes you don't control | **Self-hosted Convex** — realtime apps deploy onto your own backend |
 | AI model lock-in | Every model call routes through **OmniRoute** — one gateway, many providers |
 | Identity you don't control | Authentik-native SSO through Cerulean — one login for the whole stack |
@@ -53,10 +53,10 @@ from the Innotel Platform Stack behind you.
 
 > **Chef is retired as a builder.** Atlas used to run the Convex team's Chef
 > (`get-convex/chef`) as an opt-in `chef` profile. The build-plane convergence
-> plan settled on one builder for the whole stack — Olympus's engine, because it
-> is the only one of the three that ends with a running, named application — so
-> the profile is gone from `docker-compose.yml`, the `chef-up`/`chef-down`
-> targets are gone, and Atlas runs no builder. Convex stays: it is a genuine
+> plan settled on one builder for the whole stack — **Genie**, whose work ends
+> with a running project and a repository here — so the profile is gone from
+> `docker-compose.yml`, the `chef-up`/`chef-down` targets are gone, and Atlas
+> runs no builder. Convex stays: it is a genuine
 > deploy target. `chef-provisioner/` and [docs/chef-auth-fork.md](docs/chef-auth-fork.md)
 > remain as the record of that work.
 
@@ -81,12 +81,15 @@ make convex-key   # generate the admin key for the Convex dashboard/CLI
 make gateway-check   # verify the shared OmniRoute on Zeus (Group 2) is reachable
 ```
 
-### 3. Building apps — elsewhere
+### 3. Building apps — Genie
 
-Atlas runs no builder. The stack's one builder is Olympus's engine (Studio →
-the factory → `package-app`/`package-website` → a running container); the apps
-it produces keep their source **here** and may deploy onto Convex, which this
-stack hosts.
+Atlas runs no builder. The stack's one builder is **Genie**
+([genie.innotel.us](https://genie.innotel.us)): an agent workspace — the console
+and the `genie` CLI — that writes a project, previews it running, and
+**publishes** it into an Atlas repository (create → commit → push) using the
+`AGENT_ATLAS_*` values in its own `.env`. The apps it produces keep their source
+**here** and may deploy onto Convex, which this stack hosts. Atlas's side of
+that contract is [docs/genie.md](docs/genie.md).
 
 Full bring-up order and the Authentik/Cerulean edge wiring are in
 [docs/Deployment.md](docs/Deployment.md) and
@@ -111,7 +114,8 @@ Full bring-up order and the Authentik/Cerulean edge wiring are in
 | --- | --- |
 | [docs/stack.md](docs/stack.md) | Atlas's role in the Innotel Platform Stack (CodeOps) |
 | [docs/Architecture.md](docs/Architecture.md) | System design, components, data flows |
-| [docs/Integrations.md](docs/Integrations.md) | Gitea, Convex self-hosted, OmniRoute, Authentik, the shared builder |
+| [docs/genie.md](docs/genie.md) | **The builder** — Genie's Atlas connection: env contract, credentials, verification |
+| [docs/Integrations.md](docs/Integrations.md) | Gitea, Convex self-hosted, OmniRoute, Authentik, Genie |
 | [docs/Deployment.md](docs/Deployment.md) | Bring-up runbook, Cerulean DNS/TLS, production notes |
 | [docs/chef-auth-fork.md](docs/chef-auth-fork.md) | **Historical** — the design record for the retired Chef Authentik auth fork |
 

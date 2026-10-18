@@ -38,9 +38,15 @@ ps: ## List service status
 ## ---- Profiles -------------------------------------------------------------
 
 gateway-check: ## Verify the shared OmniRoute on Zeus (mesh) is reachable
-	@echo "Checking OmniRoute at $$(grep OMNIROUTE_BASE_URL .env | cut -d= -f2)..."
-	@curl -sf --max-time 5 "$$(grep OMNIROUTE_BASE_URL .env | cut -d= -f2)/models" >/dev/null \
-	  && echo "OmniRoute reachable" || echo "OmniRoute NOT reachable — start Zeus Group 2"
+	@url=$$(grep -m1 '^OMNIROUTE_BASE_URL=' .env | cut -d= -f2 | tr -d ' \r'); \
+	echo "Checking OmniRoute at $$url..."; \
+	code=$$(curl -s -o /dev/null -m 5 -w '%{http_code}' "$$url/models" 2>/dev/null || echo 000); \
+	echo "  /models answered $$code"; \
+	case "$$code" in \
+	  200|401|403) echo "OmniRoute reachable";; \
+	  000) echo "OmniRoute NOT reachable — check the gateway host, then Zeus Group 2"; exit 1;; \
+	  *) echo "OmniRoute answered $$code — unexpected for /models"; exit 1;; \
+	esac
 
 ## Chef is retired as a builder (convergence plan §2/§8): the `chef` profile,
 ## its provisioner, and the `chef-up`/`chef-down` targets are gone. Atlas keeps

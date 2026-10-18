@@ -7,7 +7,8 @@ control, code review, CI/CD, package hosting, and the AI app builder that
 generates full-stack applications onto a self-hosted realtime backend.
 
 > **Convergence:** see the [**build-plane convergence plan**](https://github.com/innotelinc/innotel-platform-stack/blob/main/docs/convergence-onyx-olympus-distro-atlas.md)
-> — the shared target for ONYX, Atlas, Distro and Olympus. Atlas's part: keep
+> — the shared target for ONYX, Atlas, Distro and Olympus (whose builder role
+> **Genie** now fills). Atlas's part: keep
 > CodeOps (Gitea, Convex, CI, the canonical git remote), **retire Chef as a
 > builder** (§2/§8 — applied: the `chef` profile, its provisioner and the
 > `chef-up`/`chef-down` targets are gone, and Convex stays as a deploy target),
@@ -18,8 +19,9 @@ generates full-stack applications onto a self-hosted realtime backend.
 - **Owns:** repositories, forks, pull requests, code review, issues/boards,
   wikis, releases, package registry, Actions CI/CD, and the self-hosted Convex
   backend apps deploy onto.
-- **Does not own building.** One platform, one builder, and it is Olympus's
-  engine (convergence §2). Atlas used to run Chef for this; it no longer does.
+- **Does not own building.** One platform, one builder, and it is **Genie**
+  ([genie.innotel.us](https://genie.innotel.us), convergence §2). Atlas used to
+  run Chef for this; it no longer does.
 - **Does not own:** identity, secrets, certificates/DNS, billing, storage
   (ONYX), or any production runtime of the platforms it helps build. Apps
   built in Atlas deploy to their owning platform; Atlas holds the source.
@@ -35,9 +37,10 @@ generates full-stack applications onto a self-hosted realtime backend.
 Every platform in the portfolio needs somewhere to keep its code, review
 changes, and run CI. Rather than each platform embedding a git forge, Atlas
 is the single CodeOps home — the same way Authentik is the single identity
-home. The stack's builder lives in Olympus (describe an app, get a running
-container), the source it produces lands in Atlas's Gitea, and the apps that
-want a realtime backend deploy onto the self-hosted Convex that Atlas runs.
+home. The stack's builder lives in Genie (describe an app, get it written,
+previewed and published), the source it produces lands in Atlas's Gitea, and the
+apps that want a realtime backend deploy onto the self-hosted Convex that Atlas
+runs. See [genie.md](genie.md) for the contract between them.
 
 ## Service map (Atlas-owned)
 
@@ -46,6 +49,7 @@ want a realtime backend deploy onto the self-hosted Convex that Atlas runs.
 | Repo & dev hosting | Gitea | Repos, PRs, issues, wiki, packages, Actions CI |
 | App runtime backend | Convex (self-hosted) | Reactive DB + compute — a deploy target for built apps |
 | Model gateway | OmniRoute | One OpenAI-compatible endpoint for the stack's models |
+| ~~Builder (consumer)~~ | Genie (`genie.innotel.us`) | Not owned here — the stack's one builder publishes into this Gitea ([genie.md](genie.md)) |
 | ~~AI app builder~~ | ~~Chef (get-convex/chef)~~ | **Retired as a builder** (§2/§8). Convex stays; the record is `chef-provisioner/` + [chef-auth-fork.md](chef-auth-fork.md) |
 
 ## In the ecosystem

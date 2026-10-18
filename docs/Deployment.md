@@ -1,9 +1,10 @@
 # Atlas — Deployment
 
 Atlas runs as one Compose project on a single host, or split across hosts
-behind the shared edge. Public hosts default to `git.innotel.us` (Gitea),
-`chef.innotel.us` (Chef), and `convex.innotel.us` (Convex backend when apps
-go live); every value is env-driven.
+behind the shared edge. Public hosts default to `git.innotel.us` (Gitea) and
+`convex.innotel.us` (Convex backend when apps go live); every value is
+env-driven. The builder is **not** a host of this stack — it is Genie at
+`genie.innotel.us`, and its connection to this forge is [genie.md](genie.md).
 
 ## Prerequisites
 
@@ -60,8 +61,11 @@ DNS-01 via the shared BIND; CNAMEs to the apex), provision:
 | Host | Forward | Upstream (host port) |
 | --- | --- | --- |
 | `git.innotel.us` | NPM proxy host | `127.0.0.1:${GITEA_HTTP_PORT:-3000}` |
-| `chef.innotel.us` | NPM proxy host | `127.0.0.1:${CHEF_PORT:-4310}` |
 | `convex.innotel.us` | NPM proxy host | `127.0.0.1:${CONVEX_BACKEND_PORT:-3210}` |
+
+`atlas.innotel.us` points at the same Gitea proxy host, so either name works as
+`AGENT_ATLAS_URL` on Genie's side. `chef.innotel.us` is gone with the retired
+Chef profile.
 
 `*.innotel.us` does not cover these hostnames' needs for deeper aliases —
 issue per-zone wildcards (e.g. `*.git.innotel.us`) or exact-match per-host
@@ -72,9 +76,10 @@ for Gitea go through the same proxy (NPM `websocket_support: true`).
 
 OmniRoute is the **single** model gateway in the platform (Group 2 of the mesh —
 `2-voice/`, on the Cerulean/trust host `192.168.1.71`). Atlas does **not** run its
-own instance. The gateway's own port is not a routable target — Cerulean SSO is
-its only gate, so `:20128` answers on that host's loopback and bridge alone — and
-Chef therefore dials the proxy in front of it:
+own instance, and only Atlas's own probes and any app pointed at the gateway
+consume it. Atlas dials the gateway's OpenAI-compatible endpoint on the address
+that host publishes; an unauthenticated request answers `401`, which is the
+gateway asking for the key in `OMNIROUTE_API_KEY` rather than an outage.
 
 ```env
 OMNIROUTE_BASE_URL=http://192.168.1.71:20128/v1
@@ -105,26 +110,27 @@ Magnate is Cerulean/Authentik-first: subscriber accounts + passwords live in
 Cerulean's Authentik. Atlas checks entitlements server-to-server and never holds
 Stripe keys.
 
-## Stage 4 — Chef (AI app builder)
+## Stage 4 — Builder (Genie)
+
+Atlas runs no builder, and there is nothing to bring up here for one. The
+stack's builder is **Genie** ([genie.innotel.us](https://genie.innotel.us)), a
+separate deployment that publishes into this forge over Gitea's API. The stage
+Atlas owns is the *contract*: an account (or access token) Genie can use, Gitea
+reachable from Genie's host on both HTTP and SSH, and — when subscriber access
+is sold — the Magnate plan `atlas`.
 
 ```bash
-make chef-up       # docker compose --profile chef up -d --build
+# on Genie's host, once Atlas is up
+curl -s -o /dev/null -w '%{http_code}\n' "$AGENT_ATLAS_URL/api/v1/version"
+curl -s -u "$AGENT_ATLAS_USER:$AGENT_ATLAS_PASSWORD" "$AGENT_ATLAS_URL/api/v1/user"
 ```
 
-Chef runs from upstream source (`services/chef`). Operating mode:
+See [genie.md](genie.md) for the full env contract, how to mint the token, and
+what each check's answer means.
 
-1. **Authentik fork (default on this box):** `make chef-up` builds the fork's
-   production image (`pnpm build` + `remix-serve` on `:4310`, fork workstream
-   3b.3) and Chef logs in through Cerulean's Authentik (`atlas-chef` OIDC
-   client). The hosted-plane envs (`VITE_PROVISION_HOST`/`BIG_BRAIN_HOST`)
-   are **empty by default** (fork §4 — no outbound control-plane traffic);
-   with `CHEF_PROVISION_URL` set, provisioning runs through the local
-   `chef-provisioner` (3b.2 deployment-per-app). Hosted-plane dev sets the
-   two vars explicitly as the documented escape hatch. Generated-app deploy
-   to Atlas Convex + Gitea is the 3b.2 target.
-
-Upstream-workOS mode remains available by leaving `CHEF_OIDC_*` empty (the
-fork is env-gated), but it is not the deployment target.
+> **The Chef profile is retired** (convergence §2/§8). `make chef-up` no longer
+exists; `chef-provisioner/` and [chef-auth-fork.md](chef-auth-fork.md) remain as
+the record of that work.
 
 ## Stage 5 — Actions CI (optional)
 
@@ -147,7 +153,7 @@ docker run -d --name atlas-runner --restart unless-stopped \
 - **Convex versions:** pin `CONVEX_VERSION` (and `GITEA_VERSION`) to a
   concrete release for reproducibility instead of `latest`.
 - **Same-host coexistence:** other platforms bind port 3000 etc.; change
-  `GITEA_HTTP_PORT`/`GITEA_SSH_PORT`/`CONVEX_*`/`CHEF_PORT` in `.env` and
+  `GITEA_HTTP_PORT`/`GITEA_SSH_PORT`/`CONVEX_*` in `.env` and
   re-provision the NPM forwards — no code changes.
 - **Secrets:** `.env` is derived from Cerulean Vault (`vault://` references,
   resolved by `setup.sh` / `make vault-sync`); rotate provider keys in the
